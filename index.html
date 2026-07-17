@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Owldoku</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #201a2c;
+    --bg-deep: #17131f;
+    --surface: #2c2440;
+    --surface-2: #362c4d;
+    --line: #4a3f63;
+    --line-strong: #6a5c8f;
+    --ink: #f4eee0;
+    --ink-dim: #b7aecb;
+    --accent: #e8a33d;
+    --accent-dim: #715a2b;
+    --miss: #e0685a;
+    --good: #7fb59e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
+  html,body{
+    touch-action:none;
+    -webkit-user-select:none;
+    -moz-user-select:none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+  body{
+    margin:0;
+    height:100%;
+    width:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(232,163,61,0.10), transparent 45%),
+      radial-gradient(circle at 85% 92%, rgba(127,181,158,0.08), transparent 40%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+  }
+  .wrap{
+    width:100%;
+    height:100%;
+    max-width:440px;
+    padding: min(2.5vh, 16px) 14px min(1.5vh, 10px);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:0;
+    visibility:hidden;
+    opacity:0;
+  }
+  .wrap.revealed{
+    visibility:visible;
+    opacity:1;
+    transition:opacity 0.5s ease;
+  }
+  header{ text-align:center; margin-bottom:min(1.2vh, 12px); flex:0 0 auto; position:relative; }
+  .music-toggle{
+    position:absolute; top:0; right:0;
+    width:34px; height:34px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-size:1rem; cursor:pointer;
+    transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .music-toggle.on{ border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+  .eyes{ display:flex; justify-content:center; gap:10px; margin-bottom:4px; }
+  .eyes span{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--accent);
+    box-shadow:0 0 10px rgba(232,163,61,0.7);
+    animation:blink 4.5s infinite ease-in-out;
+  }
+  .eyes span:nth-child(2){animation-delay:0.15s;}
+  @keyframes blink{ 0%,92%,100%{transform:scaleY(1);} 95%{transform:scaleY(0.12);} }
+  h1{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:600;
+    font-size:clamp(1.5rem, 6vh, 2.3rem); margin:0; letter-spacing:0.5px;
+  }
+  .tag{
+    color:var(--ink-dim); font-size:0.72rem; letter-spacing:0.07em;
+    text-transform:uppercase; margin-top:2px;
+  }
+  .rules{
+    text-align:center;
+    color:var(--ink-dim);
+    font-size:0.72rem;
+    line-height:1.4;
+    margin:min(1vh,8px) auto;
+    max-width:360px;
+    flex:0 0 auto;
+  }
+  .rules b{color:var(--ink); font-weight:600;}
+
+  .statbar{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:min(1.2vh,10px); padding:8px 14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    font-size:0.8rem; color:var(--ink-dim);
+    flex:0 0 auto;
+  }
+  .statbar .val{
+    font-family:'JetBrains Mono', monospace;
+    color:var(--ink); font-weight:600;
+  }
+  .hearts{ letter-spacing:2px; }
+  .hearts .lost{ opacity:0.25; filter:grayscale(1); }
+  select#difficulty{
+    background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
+    font-family:'Space Grotesk', sans-serif; font-size:0.8rem;
+    padding:5px 6px; border-radius:8px;
+  }
+
+  .board{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:8px;
+    box-shadow:0 20px 40px -20px rgba(0,0,0,0.6);
+    opacity:1;
+    transition:opacity 0.15s ease;
+    flex:0 1 auto;
+    min-height:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .board.generating{ opacity:0.35; pointer-events:none; }
+  .grid{
+    display:grid;
+    gap:2px;
+    background:var(--bg-deep);
+    border-radius:10px;
+    overflow:hidden;
+    aspect-ratio:1;
+    touch-action:none;
+    width:100%;
+    height:100%;
+    max-width:min(80vw, 55vh);
+    max-height:min(80vw, 55vh);
+  }
+  .cell{
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    cursor:pointer;
+    user-select:none;
+    touch-action:none;
+  }
+  .cell .fill{
+    position:absolute; inset:1px;
+    border-radius:3px;
+  }
+  .cell .glyph{
+    position:relative;
+    z-index:2;
+    font-size:1.7rem;
+    line-height:1;
+    transform:scale(0.94);
+  }
+  .cell .xmark{
+    position:relative; z-index:2;
+    width:38%; height:38%;
+    opacity:0.55;
+  }
+  .cell .xmark svg{ width:100%; height:100%; display:block; }
+  .cell.given .glyph{ filter:drop-shadow(0 0 4px rgba(0,0,0,0.4)); }
+  .cell.error .fill{ box-shadow:inset 0 0 0 3px var(--miss); }
+  .cell.error .glyph{ filter: drop-shadow(0 0 6px rgba(224,104,90,0.9)); }
+  .cell.selected .fill{ box-shadow:inset 0 0 0 2px rgba(244,238,224,0.7); }
+  .cell:active .fill{ filter:brightness(1.08); }
+
+  .modebar{ display:flex; gap:8px; margin-top:min(1.2vh,10px); flex:0 0 auto; }
+  .mode-btn{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
+    background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.82rem;
+    padding:10px 6px; border-radius:12px; cursor:pointer;
+    transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+  .mode-btn .ic{ font-size:1.3rem; vertical-align:-3px; display:inline-block; }
+  .mode-btn.active{
+    border-color:var(--accent); background:var(--accent-dim); color:var(--ink);
+  }
+
+  .toolbar{ display:flex; gap:8px; margin-top:min(1vh,8px); flex:0 0 auto; }
+  .btn{
+    flex:1; background:var(--surface); border:1px solid var(--line); color:var(--ink);
+    font-family:'Space Grotesk', sans-serif; font-weight:500; font-size:0.78rem;
+    padding:10px 6px; border-radius:12px; cursor:pointer;
+    transition:border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn:hover{ border-color:var(--line-strong); background:var(--surface-2); }
+  .btn.clear{ color:var(--miss); }
+  .btn.primary{
+    background:var(--accent); color:var(--bg-deep); border-color:var(--accent); font-weight:600;
+  }
+  .btn.primary:hover{ filter:brightness(1.06); }
+  .btn:disabled{
+    opacity:0.4; cursor:not-allowed; color:var(--ink-dim);
+    background:var(--surface); border-color:var(--line);
+  }
+  .btn:disabled:hover{ background:var(--surface); border-color:var(--line); }
+
+  .legend{
+    display:flex; align-items:center; justify-content:center; gap:14px;
+    margin-top:8px; font-size:0.72rem; color:var(--ink-dim);
+    flex:0 0 auto;
+  }
+  .legend .item{ display:flex; align-items:center; gap:5px; }
+  .legend .swatch{ width:12px; height:12px; border-radius:3px; }
+  .legend .swatch.owl{ background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:9px; }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(23,19,31,0.86);
+    display:none; align-items:center; justify-content:center; z-index:10; padding:20px;
+    touch-action:none;
+  }
+  .overlay.show{ display:flex; }
+  .card{
+    background:var(--surface); border:1px solid var(--line-strong); border-radius:18px;
+    padding:28px 26px; text-align:center; max-width:320px;
+  }
+  .card .paw{ font-size:4rem; margin-bottom:8px; line-height:1; }
+  .card h2{ font-family:'Fraunces', serif; font-style:italic; margin:0 0 6px; font-size:1.5rem; }
+  .card p{ color:var(--ink-dim); font-size:0.86rem; margin:0 0 16px; }
+  .card.sad h2{ color:var(--miss); }
+
+  footer{
+    text-align:center; color:var(--ink-dim); font-size:0.68rem;
+    margin-top:min(1.4vh,12px); letter-spacing:0.02em; line-height:1.5;
+    flex:0 0 auto;
+  }
+
+  @media (prefers-reduced-motion: reduce){ .eyes span{ animation:none !important; } }
+
+  .title-screen{
+    position:fixed; inset:0; z-index:100;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(232,163,61,0.10), transparent 45%),
+      radial-gradient(circle at 85% 92%, rgba(127,181,158,0.08), transparent 40%),
+      var(--bg);
+    text-align:center;
+    padding:20px;
+    cursor:pointer;
+    opacity:1;
+    transition:opacity 0.7s ease;
+    border:none;
+    margin:0;
+    font-family:'Space Grotesk', sans-serif;
+    color:var(--ink);
+    -webkit-appearance:none;
+    appearance:none;
+  }
+  .title-screen.hide{ opacity:0; pointer-events:none; }
+  .title-screen .eyes{ margin-bottom:10px; }
+  .title-screen .eyes span{ width:11px; height:11px; }
+  .title-screen h1{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:600;
+    font-size:clamp(2.3rem, 9vh, 3.4rem); margin:0; letter-spacing:0.5px;
+  }
+  .title-screen .tag{
+    color:var(--ink-dim); font-size:0.82rem; letter-spacing:0.07em;
+    text-transform:uppercase; margin-top:6px;
+  }
+  .title-screen .tap-prompt{
+    margin-top:min(8vh, 56px);
+    color:var(--accent);
+    font-size:0.85rem;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    animation:pulseTap 1.8s ease-in-out infinite;
+  }
+  @keyframes pulseTap{ 0%,100%{opacity:0.35;} 50%{opacity:1;} }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
+<defs>
+  <radialGradient id="owlBodyGrad" cx="38%" cy="26%" r="78%">
+    <stop offset="0%" stop-color="#fbe3ac"/>
+    <stop offset="45%" stop-color="#eeb15c"/>
+    <stop offset="100%" stop-color="#c97a2e"/>
+  </radialGradient>
+  <radialGradient id="owlBodyGradSad" cx="38%" cy="26%" r="78%">
+    <stop offset="0%" stop-color="#d9cba7"/>
+    <stop offset="45%" stop-color="#b3915c"/>
+    <stop offset="100%" stop-color="#87602f"/>
+  </radialGradient>
+  <radialGradient id="owlFaceGrad" cx="50%" cy="34%" r="72%">
+    <stop offset="0%" stop-color="#fff8ea"/>
+    <stop offset="60%" stop-color="#f7d693"/>
+    <stop offset="100%" stop-color="#eab55c"/>
+  </radialGradient>
+  <linearGradient id="owlWingGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#d9973f"/>
+    <stop offset="100%" stop-color="#a8641f"/>
+  </linearGradient>
+  <linearGradient id="owlTuftGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#c68b3c"/>
+    <stop offset="100%" stop-color="#8a5a22"/>
+  </linearGradient>
+  <linearGradient id="owlBeakGrad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#f6c877"/>
+    <stop offset="100%" stop-color="#d17a3b"/>
+  </linearGradient>
+  <radialGradient id="owlIrisGrad" cx="35%" cy="30%" r="70%">
+    <stop offset="0%" stop-color="#f0b25a"/>
+    <stop offset="55%" stop-color="#b9722a"/>
+    <stop offset="100%" stop-color="#6b3f1a"/>
+  </radialGradient>
+  <filter id="owlSoftShadow" x="-50%" y="-50%" width="200%" height="200%">
+    <feGaussianBlur stdDeviation="1.6"/>
+  </filter>
+</defs>
+</svg>
+
+<button type="button" class="title-screen" id="titleScreen" aria-label="Tap to play">
+  <div class="eyes"><span></span><span></span></div>
+  <h1>Owldoku</h1>
+  <div class="tag">one owl per territory</div>
+  <div class="tap-prompt">tap to play</div>
+</button>
+
+<div class="wrap" id="gameWrap">
+  <header>
+    <button class="music-toggle on" id="musicToggle" aria-label="Toggle background music" title="Midnight rain lofi music">🎵</button>
+    <div class="eyes"><span></span><span></span></div>
+    <h1>Owldoku</h1>
+    <div class="tag">one owl per territory</div>
+  </header>
+
+  <p class="rules">
+    Place exactly <b>one owl</b> in every row, every column, and every colored territory.
+    Owls may never touch &mdash; not even diagonally.
+  </p>
+
+  <div class="statbar">
+    <span>Time <span class="val" id="timer">00:00</span></span>
+    <span class="hearts" id="hearts"></span>
+    <select id="difficulty">
+      <option value="6">6×6</option>
+      <option value="8" selected>8×8</option>
+      <option value="10">10×10</option>
+    </select>
+  </div>
+
+  <div class="board" id="boardWrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="modebar">
+    <button class="mode-btn active" id="owlModeBtn"><span class="ic" id="owlModeIcon"></span> Place owls</button>
+    <button class="mode-btn" id="xModeBtn"><span class="ic">✕</span> Mark X</button>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn clear" id="clearBtn">Clear marks</button>
+    <button class="btn" id="hintBtn">Hint</button>
+    <button class="btn primary" id="newBtn">New puzzle</button>
+  </div>
+
+  <footer>owl mode: tap to place or remove an owl<br>mark mode: tap or drag to add or clear ✕ marks</footer>
+</div>
+
+<div class="overlay" id="winOverlay">
+  <div class="card">
+    <div class="paw" id="winOwlIcon"></div>
+    <h2>Every owl is home</h2>
+    <p id="winStats">Solved in 00:00.</p>
+    <button class="btn primary" id="playAgainBtn" style="width:100%;">Play again</button>
+  </div>
+</div>
+
+<div class="overlay" id="loseOverlay">
+  <div class="card sad">
+    <div class="paw" id="loseOwlIcon"></div>
+    <h2>Out of hearts</h2>
+    <p>Too many owls bumped into each other. Try this board again, or start a fresh one.</p>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" id="retryBtn" style="width:100%;">Retry board</button>
+      <button class="btn primary" id="freshBtn" style="width:100%;">New puzzle</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------- lock scrolling / zooming / selection ---------- */
+document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+document.addEventListener('gestureend', function(e){ e.preventDefault(); });
+
+// Prevent double-tap-to-zoom while still allowing normal single taps/clicks
+let lastTouchEnd = 0;
+document.addEventListener('touchend', function(e){
+  const now = Date.now();
+  if(now - lastTouchEnd <= 350){
+    e.preventDefault();
+  }
+  lastTouchEnd = now;
+}, { passive: false });
+
+// Prevent pinch-zoom and multi-touch gestures, and block scroll-driven touchmove
+document.addEventListener('touchmove', function(e){
+  if(e.touches.length > 1){ e.preventDefault(); return; }
+}, { passive: false });
+
+// Prevent ctrl/cmd + wheel zoom and mouse-wheel page scroll
+document.addEventListener('wheel', function(e){
+  e.preventDefault();
+}, { passive: false });
+
+// Prevent keyboard zoom shortcuts and page scroll via keys
+document.addEventListener('keydown', function(e){
+  if((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0' || e.key === '=')){
+    e.preventDefault();
+  }
+  if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(e.key)){
+    e.preventDefault();
+  }
+}, { passive: false });
+
+// Belt-and-suspenders: block context menu (long-press selection menu) and text selection events
+document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+document.addEventListener('selectstart', function(e){ e.preventDefault(); });
+
+/* ---------- shared audio core ---------- */
+const AudioCore = (function(){
+  let ctx = null;
+  let bus = null; // shared compressor bus -> destination
+  function ensure(){
+    if(!ctx){
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if(!AC) return null;
+      ctx = new AC();
+      const comp = ctx.createDynamicsCompressor();
+      comp.threshold.value = -18;
+      comp.knee.value = 24;
+      comp.ratio.value = 3;
+      comp.attack.value = 0.01;
+      comp.release.value = 0.25;
+      comp.connect(ctx.destination);
+      bus = comp;
+    }
+    return ctx;
+  }
+  // Returns a promise that resolves once the context is actually running.
+  // Starting audio nodes before this resolves can silently drop sound on
+  // some mobile browsers (notably iOS Safari) — always await this first.
+  function ready(){
+    ensure();
+    if(!ctx) return Promise.reject(new Error('no audio context'));
+    if(ctx.state === 'running') return Promise.resolve(ctx);
+    return ctx.resume().then(()=>ctx);
+  }
+  return {
+    ensure,
+    ready,
+    getBus(){ ensure(); return bus; }
+  };
+})();
+
+/* ---------- sound engine ---------- */
+const Sound = (function(){
+  let ctx = null;
+  let masterGain = null;
+  let slideStep = 0;
+  let slideDir = 1;
+  // pentatonic run — sounds pleasant ascending or descending in any order
+  const PENTA = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00];
+
+  function ensureCtx(){
+    ctx = AudioCore.ensure();
+    if(ctx && !masterGain){
+      masterGain = ctx.createGain();
+      masterGain.gain.value = 1;
+      masterGain.connect(AudioCore.getBus());
+    }
+    return ctx;
+  }
+
+  // unlock audio on first user gesture (mobile requirement)
+  function unlock(){
+    ensureCtx();
+    Music.autoStart();
+    document.removeEventListener('pointerdown', unlock);
+    document.removeEventListener('touchstart', unlock);
+  }
+  document.addEventListener('pointerdown', unlock, { once:true, passive:true });
+  document.addEventListener('touchstart', unlock, { once:true, passive:true });
+
+  // a soft, rounded "marble keyboard" style thock: filtered sine/triangle body
+  // with a very brief noise-click transient on top for tactility.
+  function thock({freq=220, dur=0.1, gain=0.22, type='sine', filterFreq=1800, click=true, glide=0}){
+    const c = ensureCtx();
+    if(!c) return;
+    const now = c.currentTime;
+
+    const osc = c.createOscillator();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    if(glide) osc.frequency.exponentialRampToValueAtTime(Math.max(40,freq+glide), now+dur*0.9);
+
+    const filt = c.createBiquadFilter();
+    filt.type = 'lowpass';
+    filt.frequency.value = filterFreq;
+    filt.Q.value = 0.7;
+
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, now);
+    g.gain.linearRampToValueAtTime(gain, now + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+    osc.connect(filt); filt.connect(g); g.connect(masterGain);
+    osc.start(now);
+    osc.stop(now + dur + 0.02);
+
+    if(click){
+      // tiny high-passed noise tick for a crisp marble-like attack
+      const bufSize = Math.floor(c.sampleRate * 0.012);
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0;i<bufSize;i++){ data[i] = (Math.random()*2-1) * (1 - i/bufSize); }
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+      const nf = c.createBiquadFilter();
+      nf.type = 'highpass';
+      nf.frequency.value = 3200;
+      const ng = c.createGain();
+      ng.gain.setValueAtTime(gain*0.5, now);
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + 0.02);
+      noise.connect(nf); nf.connect(ng); ng.connect(masterGain);
+      noise.start(now);
+      noise.stop(now + 0.025);
+    }
+  }
+
+  function chord(freqs, {dur=0.35, gain=0.15, stagger=0.05, type='sine', filterFreq=2400}={}){
+    freqs.forEach((f,i)=>{
+      setTimeout(()=> thock({freq:f, dur, gain, type, filterFreq, click:false}), i*stagger*1000);
+    });
+  }
+
+  return {
+    resetSlide(dir=1){ slideStep = 0; slideDir = dir; },
+    owlPlace(){ thock({freq:196, dur:0.14, gain:0.24, type:'triangle', filterFreq:1400, glide:24}); },
+    owlRemove(){ thock({freq:164, dur:0.1, gain:0.16, type:'triangle', filterFreq:1100, glide:-18, click:false}); },
+    // single X tap
+    xTap(){ thock({freq:520, dur:0.07, gain:0.14, type:'sine', filterFreq:2600}); },
+    // sliding row of X marks — glides up a pentatonic scale, very satisfying
+    xSlideAdd(){
+      const f = PENTA[slideStep % PENTA.length];
+      thock({freq:f, dur:0.09, gain:0.15, type:'sine', filterFreq:3000});
+      slideStep++;
+    },
+    xSlideRemove(){
+      const idx = (PENTA.length - 1) - (slideStep % PENTA.length);
+      const f = PENTA[Math.max(0, idx)];
+      thock({freq:f, dur:0.08, gain:0.12, type:'sine', filterFreq:2400});
+      slideStep++;
+    },
+    conflict(){
+      thock({freq:180, dur:0.12, gain:0.2, type:'sawtooth', filterFreq:900, glide:-40, click:false});
+      setTimeout(()=> thock({freq:140, dur:0.14, gain:0.18, type:'sawtooth', filterFreq:700, glide:-30, click:false}), 70);
+    },
+    heartLost(){
+      thock({freq:110, dur:0.22, gain:0.22, type:'sine', filterFreq:500, glide:-30, click:false});
+    },
+    hint(){
+      chord([523.25, 659.25, 783.99], {dur:0.4, gain:0.16, stagger:0.07, filterFreq:3200});
+    },
+    win(){
+      chord([392.00, 493.88, 587.33, 783.99], {dur:0.5, gain:0.18, stagger:0.11, filterFreq:3500});
+    },
+    lose(){
+      chord([220.00, 196.00, 164.81], {dur:0.5, gain:0.18, stagger:0.14, filterFreq:900, type:'triangle'});
+    },
+    button(){ thock({freq:340, dur:0.06, gain:0.13, type:'sine', filterFreq:2200, click:true}); },
+    modeSwitch(){ thock({freq:420, dur:0.08, gain:0.14, type:'sine', filterFreq:2600, glide:60}); },
+    newPuzzle(){ chord([293.66, 392.00], {dur:0.28, gain:0.16, stagger:0.06, filterFreq:2800}); }
+  };
+})();
+
+/* ---------- music: "midnight in Tokyo, rain" lofi ambience ---------- */
+/* Generative & endless — a 4-chord jazzy loop (~27s/cycle) with slow filter
+   sweeps, sparse Rhodes-style melody, soft brushed lofi beat, steady rain
+   wash with drifting swells, occasional window-drip pings, and a whisper
+   of vinyl crackle. Runs well past 3 minutes on its own, looping seamlessly
+   with ever-changing melody so it never feels static. */
+const Music = (function(){
+  let ctx = null;
+  let master = null, padBus = null, melodyBus = null, drumBus = null, rainBus = null;
+  let reverb = null, reverbSend = null;
+  let delay = null, delayFeedback = null, delaySend = null;
+  let rainSrc = null, rainLfoOsc = null;
+  let running = false, wantsToPlay = true, started = false, starting = false;
+  let schedulerId = null;
+  const BPM = 72;
+  const SPB = 60/BPM;              // seconds per beat
+  const BEATS_PER_BAR = 4;
+  const BARS_PER_CHORD = 2;
+  const SCHEDULE_AHEAD = 0.15;
+  const LOOKAHEAD_MS = 30;
+  let nextNoteTime = 0, beatCount = 0, chordIdx = -1;
+
+  const CHORDS = [
+    { notes:[220.00,261.63,329.63,392.00,493.88], scale:[220.00,246.94,261.63,293.66,329.63,392.00,440.00,493.88] }, // Am9
+    { notes:[146.83,174.61,220.00,261.63,329.63], scale:[146.83,174.61,196.00,220.00,261.63,293.66,329.63,349.23] }, // Dm9
+    { notes:[196.00,246.94,293.66,369.99,440.00], scale:[196.00,220.00,246.94,293.66,329.63,369.99,392.00,440.00] }, // Gmaj7
+    { notes:[130.81,164.81,196.00,246.94,329.63], scale:[130.81,164.81,196.00,220.00,246.94,293.66,329.63,392.00] }  // Cmaj7
+  ];
+
+  function makeImpulse(c, duration, decay){
+    const rate = c.sampleRate, len = Math.floor(rate*duration);
+    const buf = c.createBuffer(2, len, rate);
+    for(let ch=0; ch<2; ch++){
+      const d = buf.getChannelData(ch);
+      for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * Math.pow(1-i/len, decay);
+    }
+    return buf;
+  }
+
+  function makeRainBuffer(c, duration){
+    const rate = c.sampleRate, len = Math.floor(rate*duration);
+    const buf = c.createBuffer(2, len, rate);
+    for(let ch=0; ch<2; ch++){
+      const d = buf.getChannelData(ch);
+      let lastOut = 0;
+      for(let i=0;i<len;i++){
+        const white = Math.random()*2-1;
+        lastOut = (lastOut + 0.018*white) / 1.018;
+        d[i] = lastOut * 4.2;
+      }
+      // crossfade loop point so it repeats seamlessly
+      const overlap = Math.floor(rate*0.6);
+      for(let i=0;i<overlap;i++){
+        const t = i/overlap;
+        d[len-overlap+i] = d[len-overlap+i]*(1-t) + d[i]*t;
+      }
+    }
+    return buf;
+  }
+
+  function build(){
+    ctx = AudioCore.ensure();
+    if(!ctx || master) return;
+    const bus = AudioCore.getBus();
+
+    master = ctx.createGain(); master.gain.value = 0.0001;
+    master.connect(bus);
+
+    // reverb send (soft room, rain-outside-the-window ambience)
+    reverb = ctx.createConvolver();
+    reverb.buffer = makeImpulse(ctx, 3.2, 2.6);
+    reverbSend = ctx.createGain(); reverbSend.gain.value = 0.55;
+    reverbSend.connect(reverb); reverb.connect(master);
+
+    // soft echo for melody (dreamy lofi delay)
+    delay = ctx.createDelay(2.0); delay.delayTime.value = SPB*0.75;
+    delayFeedback = ctx.createGain(); delayFeedback.gain.value = 0.32;
+    const delayFilter = ctx.createBiquadFilter(); delayFilter.type='lowpass'; delayFilter.frequency.value = 2200;
+    delay.connect(delayFilter); delayFilter.connect(delayFeedback); delayFeedback.connect(delay);
+    delaySend = ctx.createGain(); delaySend.gain.value = 0.4;
+    delaySend.connect(delay); delay.connect(master);
+
+    padBus = ctx.createGain(); padBus.gain.value = 0.5; padBus.connect(master); padBus.connect(reverbSend);
+    melodyBus = ctx.createGain(); melodyBus.gain.value = 0.34; melodyBus.connect(master); melodyBus.connect(reverbSend); melodyBus.connect(delaySend);
+    drumBus = ctx.createGain(); drumBus.gain.value = 0.5; drumBus.connect(master);
+    rainBus = ctx.createGain(); rainBus.gain.value = 0.22; rainBus.connect(master);
+
+    // rain wash, looping, with a slow breathing swell
+    const rainBuf = makeRainBuffer(ctx, 6);
+    rainSrc = ctx.createBufferSource();
+    rainSrc.buffer = rainBuf; rainSrc.loop = true;
+    const rainFilter = ctx.createBiquadFilter(); rainFilter.type='lowpass'; rainFilter.frequency.value = 2600;
+    const rainHP = ctx.createBiquadFilter(); rainHP.type='highpass'; rainHP.frequency.value = 220;
+    const rainSwell = ctx.createGain(); rainSwell.gain.value = 1;
+    rainLfoOsc = ctx.createOscillator(); rainLfoOsc.frequency.value = 0.045;
+    const rainLfoGain = ctx.createGain(); rainLfoGain.gain.value = 0.28;
+    rainLfoOsc.connect(rainLfoGain); rainLfoGain.connect(rainSwell.gain);
+    rainSrc.connect(rainHP); rainHP.connect(rainFilter); rainFilter.connect(rainSwell); rainSwell.connect(rainBus);
+  }
+
+  function padVoice(freq, t0, dur, bus){
+    [-4, 0, 4].forEach((detune, i)=>{
+      const osc = ctx.createOscillator();
+      osc.type = i===1 ? 'sine' : 'triangle';
+      osc.frequency.value = freq;
+      osc.detune.value = detune;
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.setValueAtTime(700, t0);
+      filt.frequency.linearRampToValueAtTime(1500, t0 + dur*0.5);
+      filt.frequency.linearRampToValueAtTime(650, t0 + dur);
+      filt.Q.value = 0.6;
+      const g = ctx.createGain();
+      const peak = 0.11;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + dur*0.22);
+      g.gain.setValueAtTime(peak, t0 + dur*0.7);
+      g.gain.linearRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(filt); filt.connect(g); g.connect(bus);
+      osc.start(t0); osc.stop(t0+dur+0.05);
+    });
+  }
+
+  function playChord(chord, t0, dur){
+    chord.notes.forEach(f => padVoice(f, t0, dur, padBus));
+  }
+
+  function playMelodyNote(scale, t0){
+    const freq = scale[Math.floor(Math.random()*scale.length)] * (Math.random()<0.5?1:2);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.value = freq;
+    osc2.detune.value = 6;
+    const filt = ctx.createBiquadFilter();
+    filt.type='lowpass'; filt.frequency.value = 2400;
+    const dur = 1.1 + Math.random()*0.8;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.16, t0+0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    osc.connect(filt); osc2.connect(filt); filt.connect(g); g.connect(melodyBus);
+    osc.start(t0); osc.stop(t0+dur+0.1);
+    osc2.start(t0); osc2.stop(t0+dur+0.1);
+  }
+
+  function playKick(t0){
+    const osc = ctx.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(130, t0);
+    osc.frequency.exponentialRampToValueAtTime(42, t0+0.14);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.24, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+0.24);
+    const filt = ctx.createBiquadFilter(); filt.type='lowpass'; filt.frequency.value=300;
+    osc.connect(filt); filt.connect(g); g.connect(drumBus);
+    osc.start(t0); osc.stop(t0+0.3);
+  }
+
+  function noiseBurst(t0, dur, gainPeak, bandLow, bandHigh, bus){
+    const len = Math.floor(ctx.sampleRate*dur);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = (Math.random()*2-1) * (1-i/len);
+    const src = ctx.createBufferSource(); src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type='bandpass'; bp.frequency.value = (bandLow+bandHigh)/2; bp.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gainPeak, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+    src.connect(bp); bp.connect(g); g.connect(bus);
+    src.start(t0); src.stop(t0+dur+0.02);
+  }
+
+  function playSnare(t0){ noiseBurst(t0, 0.16, 0.1, 1400, 3200, drumBus); }
+  function playHat(t0, level){ noiseBurst(t0, 0.05, 0.05*level, 5000, 9000, drumBus); }
+  function playDrip(t0){
+    const osc = ctx.createOscillator(); osc.type='sine';
+    const freq = 1200 + Math.random()*900;
+    osc.frequency.setValueAtTime(freq, t0);
+    osc.frequency.exponentialRampToValueAtTime(freq*0.6, t0+0.5);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.05, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0+0.55);
+    osc.connect(g); g.connect(reverbSend);
+    osc.start(t0); osc.stop(t0+0.6);
+  }
+  function playCrackle(t0){ noiseBurst(t0, 0.02, 0.035, 2000, 6000, master); }
+
+  function scheduleBeat(beatNumber, t){
+    const chordLenBeats = BEATS_PER_BAR*BARS_PER_CHORD;
+    const beatInBar = beatNumber % BEATS_PER_BAR;
+    if(beatNumber % chordLenBeats === 0){
+      chordIdx = (chordIdx+1) % CHORDS.length;
+      playChord(CHORDS[chordIdx], t, SPB*chordLenBeats + 0.3);
+    }
+    if(beatInBar===0) playKick(t);
+    if(beatInBar===2){ playKick(t); playSnare(t+0.02); }
+    playHat(t, 0.55);
+    playHat(t + SPB*0.5*1.12, 0.3);
+    if(Math.random() < 0.4) playMelodyNote(CHORDS[chordIdx].scale, t + Math.random()*SPB*0.4);
+    if(Math.random() < 0.1) playDrip(t + Math.random()*SPB*2);
+    if(Math.random() < 0.12) playCrackle(t + Math.random()*SPB);
+  }
+
+  function schedulerLoop(){
+    while(nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD){
+      scheduleBeat(beatCount, nextNoteTime);
+      nextNoteTime += SPB;
+      beatCount++;
+    }
+  }
+
+  function start(){
+    if(running || starting) return;
+    starting = true;
+    build();
+    if(!ctx){ starting = false; return; }
+    // On iOS/Safari, starting nodes before resume() has actually taken
+    // effect can silently drop that first attempt's audio — wait for the
+    // context to truly be running before touching any source nodes.
+    AudioCore.ready().then(()=>{
+      starting = false;
+      if(running) return; // already started by another call while waiting
+      started = true; running = true;
+      nextNoteTime = ctx.currentTime + 0.05;
+      beatCount = 0; chordIdx = -1;
+      try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
+      schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS);
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+      master.gain.linearRampToValueAtTime(0.85, ctx.currentTime + 1.2);
+    }).catch(()=>{ starting = false; });
+  }
+
+  function stop(){
+    if(!running) return;
+    running = false;
+    if(ctx && master){
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+      master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 1.2);
+    }
+    clearInterval(schedulerId);
+  }
+
+  return {
+    autoStart(){ if(wantsToPlay && !started) start(); },
+    toggle(){
+      wantsToPlay = !wantsToPlay;
+      if(wantsToPlay) start(); else stop();
+      return wantsToPlay;
+    },
+    isOn(){ return wantsToPlay; }
+  };
+})();
+
+/* ---------- generation ---------- */
+function rand(n){ return Math.floor(Math.random()*n); }
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){ const j=rand(i+1); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
+
+function generateSolution(N, attempts=500){
+  for(let a=0;a<attempts;a++){
+    const perm = new Array(N).fill(-1);
+    const used = new Array(N).fill(false);
+    function bt(r){
+      if(r===N) return true;
+      const order = shuffle([...Array(N).keys()]);
+      for(const c of order){
+        if(used[c]) continue;
+        if(r>0 && Math.abs(perm[r-1]-c)<2) continue;
+        perm[r]=c; used[c]=true;
+        if(bt(r+1)) return true;
+        used[c]=false; perm[r]=-1;
+      }
+      return false;
+    }
+    if(bt(0)) return perm;
+  }
+  return null;
+}
+
+function growRegions(N, perm){
+  const regionOf = Array.from({length:N},()=>Array(N).fill(-1));
+  for(let r=0;r<N;r++) regionOf[r][perm[r]] = r;
+  let frontier = [];
+  const pushNeighbors = (r,c,region)=>{
+    const deltas=[[-1,0],[1,0],[0,-1],[0,1]];
+    for(const [dr,dc] of deltas){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<N&&nc>=0&&nc<N&&regionOf[nr][nc]===-1) frontier.push({r:nr,c:nc,region});
+    }
+  };
+  for(let r=0;r<N;r++) pushNeighbors(r, perm[r], r);
+  let guard=0;
+  while(frontier.length>0 && guard<N*N*50){
+    guard++;
+    const idx=rand(frontier.length);
+    const item=frontier[idx];
+    frontier.splice(idx,1);
+    if(regionOf[item.r][item.c]!==-1) continue;
+    regionOf[item.r][item.c]=item.region;
+    pushNeighbors(item.r,item.c,item.region);
+  }
+  let leftover=true, guard2=0;
+  while(leftover && guard2<200){
+    guard2++; leftover=false;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(regionOf[r][c]===-1){
+        leftover=true;
+        const deltas=[[-1,0],[1,0],[0,-1],[0,1]];
+        for(const [dr,dc] of deltas){
+          const nr=r+dr,nc=c+dc;
+          if(nr>=0&&nr<N&&nc>=0&&nc<N&&regionOf[nr][nc]!==-1){ regionOf[r][c]=regionOf[nr][nc]; break; }
+        }
+      }
+    }
+  }
+  return regionOf;
+}
+
+function countSolutions(N, regionOf, givens, limit=2){
+  const colUsed=new Array(N).fill(false);
+  const regionUsed=new Array(N).fill(false);
+  const placedCols=[];
+  let count=0;
+  function bt(r){
+    if(count>=limit) return;
+    if(r===N){ count++; return; }
+    if(givens[r]!==undefined){
+      const c=givens[r];
+      const reg=regionOf[r][c];
+      if(colUsed[c]||regionUsed[reg]) return;
+      if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) return; }
+      colUsed[c]=true; regionUsed[reg]=true; placedCols[r]=c;
+      bt(r+1);
+      colUsed[c]=false; regionUsed[reg]=false; placedCols.pop();
+      return;
+    }
+    for(let c=0;c<N;c++){
+      if(colUsed[c]) continue;
+      const reg=regionOf[r][c];
+      if(regionUsed[reg]) continue;
+      if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) continue; }
+      colUsed[c]=true; regionUsed[reg]=true; placedCols[r]=c;
+      bt(r+1);
+      colUsed[c]=false; regionUsed[reg]=false; placedCols.pop();
+      if(count>=limit) return;
+    }
+  }
+  bt(0);
+  return count;
+}
+
+function greedyClues(N, regionOf, perm){
+  const givens = {};
+  if(countSolutions(N, regionOf, givens, 2)===1) return givens;
+  const remainingRows = shuffle([...Array(N).keys()]);
+  let guard = 0;
+  while(guard++ < N){
+    let bestRow=null, bestCount=Infinity;
+    for(const r of remainingRows){
+      if(givens[r]!==undefined) continue;
+      const trial = Object.assign({}, givens);
+      trial[r]=perm[r];
+      const cnt = countSolutions(N, regionOf, trial, 3);
+      if(cnt < bestCount){ bestCount=cnt; bestRow=r; }
+      if(cnt===1) break;
+    }
+    if(bestRow===null) break;
+    givens[bestRow]=perm[bestRow];
+    if(countSolutions(N, regionOf, givens, 2)===1) break;
+  }
+  return givens;
+}
+
+function generatePuzzle(N){
+  const perm = generateSolution(N);
+  if(!perm) return null;
+  const growAttempts = N<=6?10:(N<=8?20:40);
+  let regionOf=null;
+  for(let g=0; g<growAttempts; g++){
+    const r = growRegions(N, perm);
+    if(countSolutions(N, r, {}, 2)===1){ regionOf=r; break; }
+  }
+  let clues={};
+  if(!regionOf){
+    regionOf = growRegions(N, perm);
+    clues = greedyClues(N, regionOf, perm);
+  }
+  return {N, perm, regionOf, clues};
+}
+
+/* ---------- game state ---------- */
+const REGION_COLORS_CACHE = {};
+function regionColors(N){
+  if(REGION_COLORS_CACHE[N]) return REGION_COLORS_CACHE[N];
+  const cols = [];
+  for(let i=0;i<N;i++){
+    const hue = Math.round((360/N)*i);
+    cols.push(`hsl(${hue} 42% 34%)`);
+  }
+  REGION_COLORS_CACHE[N] = cols;
+  return cols;
+}
+
+/* ---------- hand-drawn owl sprites (neutral / happy / dazed) ---------- */
+/* All three share the gradient + filter defs declared once near <body>. */
+
+const OWL_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.28" filter="url(#owlSoftShadow)"/>
+  <path d="M22,40 C10,45 8,65 18,82 C22,84 26,80 26,65 C26,55 25,46 22,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
+  <path d="M18,54 Q21,64 17,74" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
+  <path d="M22,58 Q24,66 21,76" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <path d="M78,40 C90,45 92,65 82,82 C78,84 74,80 74,65 C74,55 75,46 78,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
+  <path d="M82,54 Q79,64 83,74" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
+  <path d="M78,58 Q76,66 79,76" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.3" stroke-linecap="round"/>
+  <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGrad)" stroke="#5c3a17" stroke-width="1.1"/>
+  <path d="M14,24 C11,14 14,3 21,7 C25,12 23,20 20,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <path d="M27,22 C25,13 28,5 34,10 C37,15 35,21 31,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <path d="M86,24 C89,14 86,3 79,7 C75,12 77,20 80,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <path d="M73,22 C75,13 72,5 66,10 C63,15 65,21 69,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.95"/>
+  <circle cx="37" cy="47" r="13.5" fill="none" stroke="#2a1c10" stroke-width="1.1" opacity="0.4"/>
+  <circle cx="37" cy="47" r="12" fill="#fffdf6"/>
+  <circle cx="37" cy="47" r="8.3" fill="url(#owlIrisGrad)"/>
+  <circle cx="37" cy="47" r="4.4" fill="#1c130a"/>
+  <circle cx="34.3" cy="43.8" r="1.7" fill="#fff"/>
+  <circle cx="39.5" cy="50" r="0.8" fill="#fff" opacity="0.6"/>
+  <circle cx="63" cy="47" r="13.5" fill="none" stroke="#2a1c10" stroke-width="1.1" opacity="0.4"/>
+  <circle cx="63" cy="47" r="12" fill="#fffdf6"/>
+  <circle cx="63" cy="47" r="8.3" fill="url(#owlIrisGrad)"/>
+  <circle cx="63" cy="47" r="4.4" fill="#1c130a"/>
+  <circle cx="60.3" cy="43.8" r="1.7" fill="#fff"/>
+  <circle cx="65.5" cy="50" r="0.8" fill="#fff" opacity="0.6"/>
+  <path d="M50,55 C45,55 42,59 43,64 C43.5,67 46.5,69 50,69 C53.5,69 56.5,67 57,64 C58,59 55,55 50,55 Z" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
+  <path d="M50,57.5 L50,62.5" stroke="#8a4a1e" stroke-width="0.6" opacity="0.4" stroke-linecap="round"/>
+  <path d="M38,76 Q50,70 62,76" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.45" stroke-linecap="round"/>
+  <path d="M36,82 Q50,75 64,82" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <path d="M38,87 Q50,81 62,87" stroke="#c98a3e" stroke-width="1.2" fill="none" opacity="0.35" stroke-linecap="round"/>
+  <path d="M41,88 L37,96 M41,88 L41,97 M41,88 L45,96" stroke="#8a4a1e" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <path d="M59,88 L55,96 M59,88 L59,97 M59,88 L63,96" stroke="#8a4a1e" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.5"/>
+</svg>`;
+
+const OWL_HAPPY_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.28" filter="url(#owlSoftShadow)"/>
+  <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGrad)" stroke="#5c3a17" stroke-width="1.1"/>
+  <path d="M27,54 C16,50 6,42 3,26 C2,20 4,16 8,20 C13,28 18,37 24,44 C26,48 27,51 27,54 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
+  <path d="M21,40 Q14,30 9,20" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <path d="M16,34 Q10,26 6,18" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
+  <path d="M73,54 C84,50 94,42 97,26 C98,20 96,16 92,20 C87,28 82,37 76,44 C74,48 73,51 73,54 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
+  <path d="M79,40 Q86,30 91,20" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <path d="M84,34 Q90,26 94,18" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
+  <path d="M14,24 C11,14 14,3 21,7 C25,12 23,20 20,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <path d="M27,22 C25,13 28,5 34,10 C37,15 35,21 31,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <path d="M86,24 C89,14 86,3 79,7 C75,12 77,20 80,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <path d="M73,22 C75,13 72,5 66,10 C63,15 65,21 69,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
+  <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.95"/>
+  <circle cx="27" cy="58" r="4.3" fill="#ef8264" opacity="0.4"/>
+  <circle cx="73" cy="58" r="4.3" fill="#ef8264" opacity="0.4"/>
+  <path d="M28,48 Q37,38 46,48" stroke="#2a1c10" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <path d="M54,48 Q63,38 72,48" stroke="#2a1c10" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+  <path d="M50,55 C45,55 42,59 43,64 C43.5,67 46.5,69 50,69 C53.5,69 56.5,67 57,64 C58,59 55,55 50,55 Z" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
+  <path d="M38,76 Q50,70 62,76" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.45" stroke-linecap="round"/>
+  <path d="M36,82 Q50,75 64,82" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.4" stroke-linecap="round"/>
+  <path d="M12.0,10.8 L12.9,13.1 L15.2,14.0 L12.9,14.9 L12.0,17.2 L11.1,14.9 L8.8,14.0 L11.1,13.1 Z" fill="#f4d99a"/>
+  <path d="M88.0,14.4 L88.7,16.3 L90.6,17.0 L88.7,17.7 L88.0,19.6 L87.3,17.7 L85.4,17.0 L87.3,16.3 Z" fill="#f4d99a"/>
+  <path d="M50.0,0.6 L50.7,2.3 L52.4,3.0 L50.7,3.7 L50.0,5.4 L49.3,3.7 L47.6,3.0 L49.3,2.3 Z" fill="#f4d99a"/>
+</svg>`;
+
+const OWL_SAD_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg">
+  <g transform="rotate(-6 50 50)">
+    <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.25" filter="url(#owlSoftShadow)"/>
+    <path d="M22,40 C10,45 8,65 18,82 C22,84 26,80 26,65 C26,55 25,46 22,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1" opacity="0.85"/>
+    <path d="M78,40 C90,45 92,65 82,82 C78,84 74,80 74,65 C74,55 75,46 78,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1" opacity="0.85"/>
+    <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGradSad)" stroke="#4a2f14" stroke-width="1.1"/>
+    <path d="M14,24 C8,30 4,40 10,46 C15,50 22,46 22,36 C22,30 20,26 14,24 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <path d="M27,22 C22,28 20,36 25,42 C29,46 34,42 33,34 C32,29 30,25 27,22 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <path d="M86,24 C92,30 96,40 90,46 C85,50 78,46 78,36 C78,30 80,26 86,24 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <path d="M73,22 C78,28 80,36 75,42 C71,46 66,42 67,34 C68,29 70,25 73,22 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.75"/>
+    <path d="M30,42 L42,54 M42,42 L30,54" stroke="#2a1c10" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M58,42 L70,54 M70,42 L58,54" stroke="#2a1c10" stroke-width="2.4" stroke-linecap="round"/>
+    <ellipse cx="50" cy="63" rx="5" ry="6" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
+    <ellipse cx="50" cy="65" rx="2.6" ry="3" fill="#7a3a18" opacity="0.6"/>
+    <path d="M18.0,6.6 L18.7,8.3 L20.4,9.0 L18.7,9.7 L18.0,11.4 L17.3,9.7 L15.6,9.0 L17.3,8.3 Z" fill="#f4eee0" opacity="0.6"/>
+    <path d="M83.0,10.0 L83.6,11.4 L85.0,12.0 L83.6,12.6 L83.0,14.0 L82.4,12.6 L81.0,12.0 L82.4,11.4 Z" fill="#f4eee0" opacity="0.5"/>
+    <path d="M50.0,1.0 L50.5,2.3 L51.8,2.8 L50.5,3.3 L50.0,4.6 L49.5,3.3 L48.2,2.8 L49.5,2.3 Z" fill="#f4eee0" opacity="0.45"/>
+  </g>
+</svg>`;
+
+let N = 8;
+let regionOf = [];
+let solutionPerm = [];
+let given = []; // boolean grid
+let mark = [];  // 'empty' | 'x' | 'owl'
+let hearts = 3;
+let seconds = 0;
+let timerInterval = null;
+let gameOver = false;
+let solved = false;
+let selectedCell = null;
+let mode = 'owl'; // 'owl' | 'x'
+let dragging = false;
+let dragAction = null; // 'add' | 'remove'
+let hintUsed = false;
+
+function boardEl(){ return document.getElementById('grid'); }
+
+function buildGridDOM(){
+  const el = boardEl();
+  el.innerHTML = '';
+  el.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  el.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+  const colors = regionColors(N);
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      const fill = document.createElement('div');
+      fill.className = 'fill';
+      fill.style.background = colors[regionOf[r][c]];
+      cell.appendChild(fill);
+      el.appendChild(cell);
+    }
+  }
+  applyRegionBorders();
+}
+
+function applyRegionBorders(){
+  const el = boardEl();
+  const cells = el.children;
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const cell = cells[r*N+c];
+      const reg = regionOf[r][c];
+      const rightDiff = c<N-1 && regionOf[r][c+1]!==reg;
+      const bottomDiff = r<N-1 && regionOf[r+1][c]!==reg;
+      const leftDiff = c>0 && regionOf[r][c-1]!==reg;
+      const topDiff = r>0 && regionOf[r-1][c]!==reg;
+      cell.style.borderRight = rightDiff ? '2px solid var(--bg-deep)' : 'none';
+      cell.style.borderBottom = bottomDiff ? '2px solid var(--bg-deep)' : 'none';
+      cell.style.borderLeft = (leftDiff || c===0) ? '2px solid var(--bg-deep)' : 'none';
+      cell.style.borderTop = (topDiff || r===0) ? '2px solid var(--bg-deep)' : 'none';
+    }
+  }
+}
+
+function allOwls(){
+  const out = [];
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(given[r][c] || mark[r][c]==='owl') out.push([r,c]);
+  }
+  return out;
+}
+
+function owlConflicts(r,c, owls){
+  const conflicts = [];
+  for(const [or,oc] of owls){
+    if(or===r && oc===c) continue;
+    const sameRow = or===r;
+    const sameCol = oc===c;
+    const sameRegion = regionOf[or][oc]===regionOf[r][c];
+    const touching = Math.abs(or-r)<=1 && Math.abs(oc-c)<=1;
+    if(sameRow || sameCol || sameRegion || touching) conflicts.push([or,oc]);
+  }
+  return conflicts;
+}
+
+function toggleOwl(r,c){
+  if(given[r][c]){ selectedCell={r,c}; render(); return; }
+  selectedCell = {r,c};
+  if(mark[r][c]==='owl'){
+    mark[r][c]='empty';
+    Sound.owlRemove();
+  } else {
+    mark[r][c]='owl';
+    const owls = allOwls();
+    const conflicts = owlConflicts(r,c,owls);
+    if(conflicts.length>0){
+      Sound.conflict();
+      hearts = Math.max(0, hearts-1);
+      Sound.heartLost();
+      if(hearts===0){
+        render();
+        endGame(false);
+        return;
+      }
+    } else {
+      Sound.owlPlace();
+    }
+  }
+  render();
+  checkWin();
+}
+
+function paintX(r,c,action){
+  if(given[r][c] || mark[r][c]==='owl') return;
+  if(action==='add' && mark[r][c]!=='x'){ mark[r][c]='x'; render(); Sound.xSlideAdd(); }
+  else if(action==='remove' && mark[r][c]==='x'){ mark[r][c]='empty'; render(); Sound.xSlideRemove(); }
+}
+
+function cellFromPoint(x,y){
+  const el = document.elementFromPoint(x,y);
+  if(!el) return null;
+  const cellEl = el.closest ? el.closest('.cell') : null;
+  if(!cellEl) return null;
+  return { r: +cellEl.dataset.r, c: +cellEl.dataset.c };
+}
+
+function onGridPointerDown(e){
+  if(gameOver || solved) return;
+  const cellEl = e.target.closest('.cell');
+  if(!cellEl) return;
+  const r = +cellEl.dataset.r, c = +cellEl.dataset.c;
+  selectedCell = {r,c};
+
+  if(mode==='owl'){
+    toggleOwl(r,c);
+    return;
+  }
+  // x mode
+  if(given[r][c] || mark[r][c]==='owl'){ render(); return; }
+  const action = mark[r][c]==='x' ? 'remove' : 'add';
+  dragAction = action;
+  dragging = true;
+  Sound.resetSlide();
+  paintX(r,c,action);
+  e.preventDefault();
+}
+
+function onDocPointerMove(e){
+  if(!dragging || mode!=='x') return;
+  e.preventDefault();
+  const cell = cellFromPoint(e.clientX, e.clientY);
+  if(!cell) return;
+  paintX(cell.r, cell.c, dragAction);
+}
+
+function onDocPointerUp(){
+  dragging = false;
+  dragAction = null;
+}
+
+function render(){
+  const el = boardEl();
+  const cells = el.children;
+  const owls = allOwls();
+  for(let r=0;r<N;r++){
+    for(let c=0;c<N;c++){
+      const cell = cells[r*N+c];
+      cell.classList.toggle('given', !!given[r][c]);
+      cell.classList.toggle('selected', selectedCell && selectedCell.r===r && selectedCell.c===c);
+      const isOwl = given[r][c] || mark[r][c]==='owl';
+      const hasConflict = isOwl && owlConflicts(r,c,owls).length>0;
+      cell.classList.toggle('error', hasConflict && !given[r][c]);
+
+      let inner = '';
+      if(isOwl){
+        inner = `<div class="glyph">${OWL_SVG}</div>`;
+      } else if(mark[r][c]==='x'){
+        inner = xSvg();
+      }
+      const fill = cell.querySelector('.fill');
+      cell.innerHTML = '';
+      cell.appendChild(fill);
+      cell.insertAdjacentHTML('beforeend', inner);
+    }
+  }
+  document.getElementById('hearts').innerHTML = heartsHTML();
+}
+
+function xSvg(){
+  return `<div class="xmark"><svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></div>`;
+}
+
+function heartsHTML(){
+  let out = '';
+  for(let i=0;i<3;i++){
+    out += i < hearts ? '♥' : '<span class="lost">♥</span>';
+  }
+  return out;
+}
+
+function checkWin(){
+  const owls = allOwls();
+  if(owls.length !== N) return;
+  for(const [r,c] of owls){
+    if(owlConflicts(r,c,owls).length>0) return;
+  }
+  solved = true;
+  clearInterval(timerInterval);
+  Sound.win();
+  document.getElementById('winStats').textContent = `Solved in ${formatTime(seconds)} with ${hearts} heart${hearts===1?'':'s'} left.`;
+  document.getElementById('winOverlay').classList.add('show');
+}
+
+function endGame(won){
+  gameOver = true;
+  clearInterval(timerInterval);
+  if(!won){
+    Sound.lose();
+    document.getElementById('loseOverlay').classList.add('show');
+  }
+}
+
+function formatTime(s){
+  const m = Math.floor(s/60).toString().padStart(2,'0');
+  const sec = (s%60).toString().padStart(2,'0');
+  return `${m}:${sec}`;
+}
+
+function startTimer(){
+  clearInterval(timerInterval);
+  seconds = 0;
+  document.getElementById('timer').textContent = '00:00';
+  timerInterval = setInterval(()=>{
+    seconds++;
+    document.getElementById('timer').textContent = formatTime(seconds);
+  },1000);
+}
+
+function resetMarksOnly(){
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(!given[r][c]) mark[r][c]='empty';
+  }
+  hearts = 3;
+  gameOver = false;
+  solved = false;
+  selectedCell = null;
+  hintUsed = false;
+  updateHintButton();
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('loseOverlay').classList.remove('show');
+  render();
+  startTimer();
+}
+
+function updateHintButton(){
+  const btn = document.getElementById('hintBtn');
+  btn.disabled = hintUsed;
+  btn.textContent = hintUsed ? 'Hint used' : 'Hint';
+}
+
+function hint(){
+  if(gameOver || solved || hintUsed) return;
+  let target = null;
+  outer:
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    if(!given[r][c] && solutionPerm[r]===c && mark[r][c]!=='owl'){ target={r,c}; break outer; }
+  }
+  if(!target) return;
+  given[target.r][target.c] = true;
+  mark[target.r][target.c] = 'owl';
+  selectedCell = target;
+  hintUsed = true;
+  updateHintButton();
+  Sound.hint();
+  render();
+  checkWin();
+}
+
+async function newGame(){
+  N = parseInt(document.getElementById('difficulty').value, 10);
+  document.getElementById('boardWrap').classList.add('generating');
+  await new Promise(res=>setTimeout(res, 10));
+  const result = generatePuzzle(N);
+  regionOf = result.regionOf;
+  solutionPerm = result.perm;
+  given = Array.from({length:N},()=>Array(N).fill(false));
+  mark = Array.from({length:N},()=>Array(N).fill('empty'));
+  for(const rowStr in result.clues){
+    const r = parseInt(rowStr,10);
+    const c = result.clues[rowStr];
+    given[r][c] = true;
+    mark[r][c] = 'owl';
+  }
+  hearts = 3;
+  gameOver = false;
+  solved = false;
+  selectedCell = null;
+  hintUsed = false;
+  updateHintButton();
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('loseOverlay').classList.remove('show');
+  buildGridDOM();
+  render();
+  startTimer();
+  document.getElementById('boardWrap').classList.remove('generating');
+  Sound.newPuzzle();
+}
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{ if(!gameOver){ Sound.button(); resetMarksOnly(); } });
+document.getElementById('hintBtn').addEventListener('click', hint);
+document.getElementById('newBtn').addEventListener('click', newGame);
+document.getElementById('playAgainBtn').addEventListener('click', newGame);
+document.getElementById('retryBtn').addEventListener('click', ()=>{ Sound.button(); resetMarksOnly(); });
+document.getElementById('freshBtn').addEventListener('click', newGame);
+document.getElementById('difficulty').addEventListener('change', newGame);
+
+const owlModeBtn = document.getElementById('owlModeBtn');
+const xModeBtn = document.getElementById('xModeBtn');
+function setMode(m){
+  if(mode !== m) Sound.modeSwitch();
+  mode = m;
+  owlModeBtn.classList.toggle('active', m==='owl');
+  xModeBtn.classList.toggle('active', m==='x');
+}
+owlModeBtn.addEventListener('click', ()=>setMode('owl'));
+xModeBtn.addEventListener('click', ()=>setMode('x'));
+
+const musicToggleBtn = document.getElementById('musicToggle');
+musicToggleBtn.addEventListener('click', ()=>{
+  AudioCore.ensure();
+  const isOn = Music.toggle();
+  musicToggleBtn.classList.toggle('on', isOn);
+  musicToggleBtn.textContent = isOn ? '🎵' : '🔇';
+});
+
+const titleScreen = document.getElementById('titleScreen');
+const gameWrap = document.getElementById('gameWrap');
+function dismissTitleScreen(){
+  AudioCore.ensure();
+  Music.autoStart();
+  titleScreen.classList.add('hide');
+  gameWrap.classList.add('revealed');
+  titleScreen.addEventListener('transitionend', ()=>{ titleScreen.style.display = 'none'; }, { once:true });
+}
+titleScreen.addEventListener('click', dismissTitleScreen, { once:true });
+
+boardEl().addEventListener('pointerdown', onGridPointerDown);
+document.addEventListener('pointermove', onDocPointerMove);
+document.addEventListener('pointerup', onDocPointerUp);
+document.addEventListener('pointercancel', onDocPointerUp);
+
+document.getElementById('owlModeIcon').innerHTML = OWL_SVG;
+document.getElementById('winOwlIcon').innerHTML = OWL_HAPPY_SVG;
+document.getElementById('loseOwlIcon').innerHTML = OWL_SAD_SVG;
+
+newGame();
+</script>
+
+</body>
+</html>
