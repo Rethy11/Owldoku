@@ -180,6 +180,8 @@
     opacity:0.55;
   }
   .cell .xmark svg{ width:100%; height:100%; display:block; }
+  .cell .glyph svg,
+  .cell .xmark svg{ pointer-events:none; }
   .cell.given .glyph{ filter:drop-shadow(0 0 4px rgba(0,0,0,0.4)); }
   .cell.error .fill{ box-shadow:inset 0 0 0 3px var(--miss); }
   .cell.error .glyph{ filter: drop-shadow(0 0 6px rgba(224,104,90,0.9)); }
