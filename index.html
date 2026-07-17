@@ -314,7 +314,7 @@
 </head>
 <body>
 
-<svg width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
+<svg id="sharedIconDefs" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
 <defs>
   <radialGradient id="owlBodyGrad" cx="38%" cy="26%" r="78%">
     <stop offset="0%" stop-color="#fbe3ac"/>
@@ -1621,6 +1621,20 @@ async function captureResultImage(won){
   if(!window.html2canvas) return null;
   const cardEl = document.querySelector(won ? '#winOverlay .card' : '#loseOverlay .card');
   if(!cardEl) return null;
+
+  // The owl icon's gradient/filter fills (url(#owlWingGrad) etc.) are defined in a
+  // shared <defs> block elsewhere in the page. html2canvas rasterizes each <svg>
+  // in isolation, so it can't resolve those cross-element references and the owl
+  // renders as an outline with no fill. Clone the defs directly into the icon's
+  // own <svg> just for the capture so every reference resolves locally.
+  const iconSvg = cardEl.querySelector('.paw svg');
+  const sharedDefs = document.querySelector('#sharedIconDefs defs');
+  let injectedDefs = null;
+  if(iconSvg && sharedDefs){
+    injectedDefs = sharedDefs.cloneNode(true);
+    iconSvg.insertBefore(injectedDefs, iconSvg.firstChild);
+  }
+
   try{
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#2c2440';
     const canvas = await html2canvas(cardEl, { backgroundColor: bg, scale: 2 });
@@ -1630,6 +1644,8 @@ async function captureResultImage(won){
   }catch(e){
     console.warn('Screenshot capture failed, sharing link only', e);
     return null;
+  }finally{
+    if(injectedDefs) injectedDefs.remove();
   }
 }
 
