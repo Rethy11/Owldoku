@@ -121,10 +121,21 @@
   }
   .hearts{ letter-spacing:2px; }
   .hearts .lost{ opacity:0.25; filter:grayscale(1); }
-  select#difficulty{
+  .selectbar{
+    display:flex; gap:8px; margin-bottom:min(1.2vh,10px); flex:0 0 auto;
+  }
+  .selectbar .field{
+    flex:1; display:flex; flex-direction:column; gap:3px;
+  }
+  .selectbar label{
+    font-size:0.66rem; color:var(--ink-dim); letter-spacing:0.06em; text-transform:uppercase;
+    padding-left:2px;
+  }
+  .selectbar select{
+    width:100%;
     background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
-    font-family:'Space Grotesk', sans-serif; font-size:0.8rem;
-    padding:5px 6px; border-radius:8px;
+    font-family:'Space Grotesk', sans-serif; font-size:0.8rem; font-weight:500;
+    padding:7px 8px; border-radius:10px;
   }
 
   .board{
@@ -363,11 +374,25 @@
   <div class="statbar">
     <span>Time <span class="val" id="timer">00:00</span></span>
     <span class="hearts" id="hearts"></span>
-    <select id="difficulty">
-      <option value="6">6×6</option>
-      <option value="8" selected>8×8</option>
-      <option value="10">10×10</option>
-    </select>
+  </div>
+
+  <div class="selectbar">
+    <div class="field">
+      <label for="sizeSelect">Size</label>
+      <select id="sizeSelect">
+        <option value="6">6×6</option>
+        <option value="8" selected>8×8</option>
+        <option value="10">10×10</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="difficultySelect">Difficulty</label>
+      <select id="difficultySelect">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
   </div>
 
   <div class="board" id="boardWrap">
@@ -1026,7 +1051,7 @@ function greedyClues(N, regionOf, perm){
   return givens;
 }
 
-function generatePuzzle(N){
+function buildCandidate(N, seekMinimal){
   const perm = generateSolution(N);
   if(!perm) return null;
   const growAttempts = N<=6?10:(N<=8?20:40);
@@ -1037,10 +1062,62 @@ function generatePuzzle(N){
   }
   let clues={};
   if(!regionOf){
-    regionOf = growRegions(N, perm);
-    clues = greedyClues(N, regionOf, perm);
+    // No fully-unique (0-clue) region found for this solution. Sample a handful
+    // of region layouts and keep whichever needs the fewest clues, rather than
+    // just settling for the last one tried — this matters most for hard mode.
+    const sampleCount = seekMinimal ? 12 : 1;
+    let bestClues=null, bestRegion=null;
+    for(let s=0;s<sampleCount;s++){
+      const r = growRegions(N, perm);
+      const cl = greedyClues(N, r, perm);
+      if(bestClues===null || Object.keys(cl).length < Object.keys(bestClues).length){
+        bestClues = cl; bestRegion = r;
+      }
+      if(Object.keys(bestClues).length<=2) break;
+    }
+    regionOf = bestRegion;
+    clues = bestClues;
   }
   return {N, perm, regionOf, clues};
+}
+
+// Difficulty is expressed as target clue count. Hard boards search across several
+// candidate solutions/regions to find one that's genuinely solvable with very few
+// givens (0-2). Medium/easy start from the minimal unique-solution clue set and
+// pad with additional true clues (safe: revealing more of a valid solution never
+// breaks uniqueness) up to a target count for that difficulty.
+function clueTarget(difficulty, N){
+  if(difficulty==='easy') return Math.max(3, Math.ceil(N*0.7));
+  if(difficulty==='hard') return 2;
+  return Math.max(2, Math.round(N/2)-1); // medium
+}
+
+function generatePuzzle(N, difficulty='medium'){
+  const HARD_MAX = 2;
+  const isHard = difficulty==='hard';
+  const outerAttempts = isHard ? (N>=10 ? 18 : 10) : 1;
+  let best = null;
+  for(let i=0;i<outerAttempts;i++){
+    const cand = buildCandidate(N, isHard);
+    if(!cand) continue;
+    const clueCount = Object.keys(cand.clues).length;
+    if(!best || clueCount < Object.keys(best.clues).length) best = cand;
+    if(isHard && clueCount<=HARD_MAX) break;
+  }
+  if(!best) return null;
+
+  if(difficulty==='hard'){
+    return best; // minimal clue set as found — 0-2 in the overwhelming majority of cases
+  }
+
+  const target = clueTarget(difficulty, N);
+  const clues = Object.assign({}, best.clues);
+  const rowsAvailable = shuffle([...Array(N).keys()].filter(r=>clues[r]===undefined));
+  for(const r of rowsAvailable){
+    if(Object.keys(clues).length >= target) break;
+    clues[r] = best.perm[r];
+  }
+  return {N, perm:best.perm, regionOf:best.regionOf, clues};
 }
 
 /* ---------- puzzle sharing (encode exact board into a URL-safe code) ---------- */
@@ -1489,10 +1566,11 @@ function startPuzzle(result){
 }
 
 async function newGame(){
-  N = parseInt(document.getElementById('difficulty').value, 10);
+  N = parseInt(document.getElementById('sizeSelect').value, 10);
+  const difficulty = document.getElementById('difficultySelect').value;
   document.getElementById('boardWrap').classList.add('generating');
   await new Promise(res=>setTimeout(res, 10));
-  const result = generatePuzzle(N);
+  const result = generatePuzzle(N, difficulty);
   startPuzzle(result);
   document.getElementById('boardWrap').classList.remove('generating');
   Sound.newPuzzle();
@@ -1504,7 +1582,7 @@ function loadPuzzleFromURL(){
     if(!code) return false;
     const result = unpackPuzzle(code);
     if(!result) return false;
-    document.getElementById('difficulty').value = String(result.N);
+    document.getElementById('sizeSelect').value = String(result.N);
     startPuzzle(result);
     return true;
   }catch(e){
@@ -1558,7 +1636,8 @@ document.getElementById('newBtn').addEventListener('click', newGame);
 document.getElementById('playAgainBtn').addEventListener('click', newGame);
 document.getElementById('retryBtn').addEventListener('click', ()=>{ Sound.button(); resetMarksOnly(); });
 document.getElementById('freshBtn').addEventListener('click', newGame);
-document.getElementById('difficulty').addEventListener('change', newGame);
+document.getElementById('sizeSelect').addEventListener('change', newGame);
+document.getElementById('difficultySelect').addEventListener('change', newGame);
 document.getElementById('shareWinBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget));
 document.getElementById('shareLoseBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget));
 
