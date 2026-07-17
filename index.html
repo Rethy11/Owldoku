@@ -451,25 +451,30 @@ document.addEventListener('selectstart', function(e){ e.preventDefault(); });
   function forceResetZoom(){
     if(resetting || !viewportMeta) return;
     resetting = true;
+    window.scrollTo(0,0);
     viewportMeta.setAttribute('content', baseContent + ', maximum-scale=1.0');
-    requestAnimationFrame(()=>{
+    // give the browser a beat to actually apply the clamp before releasing it,
+    // otherwise a fast RAF-only toggle can get missed mid zoom-animation
+    setTimeout(function(){
       viewportMeta.setAttribute('content', baseContent);
       window.scrollTo(0,0);
       resetting = false;
-    });
+    }, 80);
+  }
+  window.__forceResetZoom = forceResetZoom;
+  function isZoomed(){
+    return window.visualViewport && window.visualViewport.scale > 1.01;
   }
   if(window.visualViewport){
-    window.visualViewport.addEventListener('resize', function(){
-      if(window.visualViewport.scale > 1.01) forceResetZoom();
-    });
-    window.visualViewport.addEventListener('scroll', function(){
-      if(window.visualViewport.scale > 1.01) forceResetZoom();
-    });
+    window.visualViewport.addEventListener('resize', function(){ if(isZoomed()) forceResetZoom(); });
+    window.visualViewport.addEventListener('scroll', function(){ if(isZoomed()) forceResetZoom(); });
   }
+  // Catch it the instant the next touch/click happens anywhere, so a stuck zoom
+  // never survives past the user's very next tap.
+  document.addEventListener('touchstart', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
+  document.addEventListener('pointerdown', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
   // Polling fallback in case a browser doesn't fire the events above for zoom changes
-  setInterval(function(){
-    if(window.visualViewport && window.visualViewport.scale > 1.01) forceResetZoom();
-  }, 300);
+  setInterval(function(){ if(isZoomed()) forceResetZoom(); }, 150);
 })();
 
 /* ---------- shared audio core ---------- */
@@ -1247,6 +1252,7 @@ function onGridPointerDown(e){
   if(gameOver || solved) return;
   const cellEl = e.target.closest('.cell');
   if(!cellEl) return;
+  e.preventDefault();
   const r = +cellEl.dataset.r, c = +cellEl.dataset.c;
   selectedCell = {r,c};
 
@@ -1261,7 +1267,6 @@ function onGridPointerDown(e){
   dragging = true;
   Sound.resetSlide();
   paintX(r,c,action);
-  e.preventDefault();
 }
 
 function onDocPointerMove(e){
