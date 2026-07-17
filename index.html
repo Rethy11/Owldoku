@@ -57,8 +57,8 @@
   .wrap{
     width:100%;
     height:100%;
-    max-width:440px;
-    padding: min(1.5vh, 10px) 12px min(1vh, 8px);
+    max-width:680px;
+    padding: min(1.5vh, 10px) 8px min(1vh, 8px);
     display:flex;
     flex-direction:column;
     justify-content:flex-start;
@@ -92,19 +92,19 @@
   @keyframes blink{ 0%,92%,100%{transform:scaleY(1);} 95%{transform:scaleY(0.12);} }
   h1{
     font-family:'Fraunces', serif; font-style:italic; font-weight:600;
-    font-size:clamp(1.25rem, 4.2vh, 1.8rem); margin:0; letter-spacing:0.5px;
+    font-size:clamp(1.55rem, 5.2vh, 2.3rem); margin:0; letter-spacing:0.5px;
   }
   .tag{
-    color:var(--ink-dim); font-size:0.66rem; letter-spacing:0.07em;
-    text-transform:uppercase; margin-top:1px;
+    color:var(--ink-dim); font-size:0.8rem; letter-spacing:0.07em;
+    text-transform:uppercase; margin-top:2px;
   }
   .rules{
     text-align:center;
     color:var(--ink-dim);
-    font-size:0.64rem;
-    line-height:1.25;
-    margin:min(0.6vh,5px) auto;
-    max-width:340px;
+    font-size:0.82rem;
+    line-height:1.3;
+    margin:min(0.8vh,7px) auto;
+    max-width:380px;
     flex:0 0 auto;
   }
   .rules b{color:var(--ink); font-weight:600;}
@@ -141,11 +141,6 @@
 
   .board{
     position:relative;
-    background:var(--surface);
-    border:1px solid var(--line);
-    border-radius:18px;
-    padding:8px;
-    box-shadow:0 20px 40px -20px rgba(0,0,0,0.6);
     opacity:1;
     transition:opacity 0.15s ease;
     flex:1 1 auto;
@@ -154,9 +149,20 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    overflow:hidden;
   }
   .board.generating{ opacity:0.35; pointer-events:none; }
+  .board-box{
+    position:relative;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:6px;
+    box-shadow:0 20px 40px -20px rgba(0,0,0,0.6);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
   .grid{
     display:grid;
     gap:2px;
@@ -383,23 +389,25 @@
     <div class="field">
       <label for="sizeSelect">Size</label>
       <select id="sizeSelect">
-        <option value="6">6×6</option>
-        <option value="8" selected>8×8</option>
+        <option value="6" selected>6×6</option>
+        <option value="8">8×8</option>
         <option value="10">10×10</option>
       </select>
     </div>
     <div class="field">
       <label for="difficultySelect">Difficulty</label>
       <select id="difficultySelect">
-        <option value="easy">Easy</option>
-        <option value="medium" selected>Medium</option>
+        <option value="easy" selected>Easy</option>
+        <option value="medium">Medium</option>
         <option value="hard">Hard</option>
       </select>
     </div>
   </div>
 
   <div class="board" id="boardWrap">
-    <div class="grid" id="grid"></div>
+    <div class="board-box" id="boardBox">
+      <div class="grid" id="grid"></div>
+    </div>
   </div>
 
   <div class="modebar">
@@ -1264,7 +1272,7 @@ const OWL_SAD_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns
   </g>
 </svg>`;
 
-let N = 8;
+let N = 6;
 let regionOf = [];
 let solutionPerm = [];
 let given = []; // boolean grid
@@ -1283,19 +1291,24 @@ let currentPuzzleCode = '';
 
 function boardEl(){ return document.getElementById('grid'); }
 
-/* ---------- keep the board a perfect square that fills all available room ---------- */
+/* ---------- keep the visible board box a square that hugs the grid, ---------- */
+/* rather than stretching to fill the whole rectangular wrapper           */
 function sizeBoard(){
   const wrap = document.getElementById('boardWrap');
+  const box = document.getElementById('boardBox');
   const grid = document.getElementById('grid');
-  if(!wrap || !grid) return;
-  const cs = getComputedStyle(wrap);
-  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
-  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  const availW = wrap.clientWidth - padX;
-  const availH = wrap.clientHeight - padY;
-  const size = Math.max(0, Math.floor(Math.min(availW, availH)));
-  grid.style.width = size + 'px';
-  grid.style.height = size + 'px';
+  if(!wrap || !box || !grid) return;
+  const availW = wrap.clientWidth;
+  const availH = wrap.clientHeight;
+  const boxCs = getComputedStyle(box);
+  const boxPadX = parseFloat(boxCs.paddingLeft) + parseFloat(boxCs.paddingRight);
+  const boxPadY = parseFloat(boxCs.paddingTop) + parseFloat(boxCs.paddingBottom);
+  const outerSize = Math.max(0, Math.floor(Math.min(availW, availH)));
+  const gridSize = Math.max(0, outerSize - Math.max(boxPadX, boxPadY));
+  box.style.width = (gridSize + boxPadX) + 'px';
+  box.style.height = (gridSize + boxPadY) + 'px';
+  grid.style.width = gridSize + 'px';
+  grid.style.height = gridSize + 'px';
 }
 
 function buildGridDOM(){
@@ -1622,24 +1635,23 @@ async function captureResultImage(won){
   const cardEl = document.querySelector(won ? '#winOverlay .card' : '#loseOverlay .card');
   if(!cardEl) return null;
 
-  // The owl icon's gradient/filter fills (url(#owlWingGrad) etc.) are defined in a
-  // shared <defs> block elsewhere in the page. html2canvas rasterizes each <svg>
-  // in isolation, so it can't resolve those cross-element references and the owl
-  // renders as an outline with no fill. We clone the defs into the icon's own
-  // <svg> just for the capture — but the clone must use fresh, unique ids. Reusing
-  // the original ids creates two elements with the same id in the document, and
-  // browsers can then get confused about which gradient to paint, occasionally
-  // leaving the *live game board's* owls unfilled too. Renaming avoids that.
-  const iconSvg = cardEl.querySelector('.paw svg');
-  const sharedDefs = document.querySelector('#sharedIconDefs defs');
-  let injectedDefs = null;
-  const restoreRefs = [];
+  // Do all the work on a detached clone, off-screen. Earlier versions edited the
+  // *live* card's icon <svg> in place (even briefly, even restored afterward) and
+  // that was enough to confuse the browser's gradient paint cache for the whole
+  // page, leaving the real game board's owls unfilled after sharing. Cloning
+  // means the live DOM — and the shared gradient defs the board depends on —
+  // is never touched.
+  const clone = cardEl.cloneNode(true);
+  clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  clone.removeAttribute('id');
 
+  const iconSvg = clone.querySelector('.paw svg');
+  const sharedDefs = document.querySelector('#sharedIconDefs defs');
   if(iconSvg && sharedDefs){
     const suffix = `cap${Date.now()}`;
-    injectedDefs = sharedDefs.cloneNode(true);
+    const defsClone = sharedDefs.cloneNode(true);
     const idMap = {};
-    injectedDefs.querySelectorAll('[id]').forEach(node => {
+    defsClone.querySelectorAll('[id]').forEach(node => {
       const newId = `${node.id}-${suffix}`;
       idMap[node.id] = newId;
       node.id = newId;
@@ -1649,17 +1661,24 @@ async function captureResultImage(won){
       refAttrs.forEach(attr => {
         const val = node.getAttribute(attr);
         if(val && val.startsWith('url(#') && idMap[val.slice(5,-1)]){
-          restoreRefs.push([node, attr, val]);
           node.setAttribute(attr, `url(#${idMap[val.slice(5,-1)]})`);
         }
       });
     });
-    iconSvg.insertBefore(injectedDefs, iconSvg.firstChild);
+    iconSvg.insertBefore(defsClone, iconSvg.firstChild);
   }
+
+  const rect = cardEl.getBoundingClientRect();
+  clone.style.position = 'fixed';
+  clone.style.left = '-10000px';
+  clone.style.top = '0';
+  clone.style.margin = '0';
+  clone.style.width = rect.width + 'px';
+  document.body.appendChild(clone);
 
   try{
     const bg = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#2c2440';
-    const canvas = await html2canvas(cardEl, { backgroundColor: bg, scale: 2 });
+    const canvas = await html2canvas(clone, { backgroundColor: bg, scale: 2 });
     const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
     if(!blob) return null;
     return new File([blob], won ? 'owldoku-win.png' : 'owldoku-lose.png', { type: 'image/png' });
@@ -1667,8 +1686,7 @@ async function captureResultImage(won){
     console.warn('Screenshot capture failed, sharing link only', e);
     return null;
   }finally{
-    restoreRefs.forEach(([node, attr, val]) => node.setAttribute(attr, val));
-    if(injectedDefs) injectedDefs.remove();
+    clone.remove();
   }
 }
 
