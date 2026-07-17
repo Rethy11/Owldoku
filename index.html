@@ -57,10 +57,10 @@
     width:100%;
     height:100%;
     max-width:440px;
-    padding: min(2.5vh, 16px) 14px min(1.5vh, 10px);
+    padding: min(1.5vh, 10px) 12px min(1vh, 8px);
     display:flex;
     flex-direction:column;
-    justify-content:center;
+    justify-content:flex-start;
     gap:0;
     visibility:hidden;
     opacity:0;
@@ -70,19 +70,19 @@
     opacity:1;
     transition:opacity 0.5s ease;
   }
-  header{ text-align:center; margin-bottom:min(1.2vh, 12px); flex:0 0 auto; position:relative; }
+  header{ text-align:center; margin-bottom:min(0.6vh, 6px); flex:0 0 auto; position:relative; }
   .music-toggle{
     position:absolute; top:0; right:0;
-    width:34px; height:34px; border-radius:50%;
+    width:28px; height:28px; border-radius:50%;
     background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
     display:flex; align-items:center; justify-content:center;
-    font-size:1rem; cursor:pointer;
+    font-size:0.9rem; cursor:pointer;
     transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
   }
   .music-toggle.on{ border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
-  .eyes{ display:flex; justify-content:center; gap:10px; margin-bottom:4px; }
+  .eyes{ display:flex; justify-content:center; gap:8px; margin-bottom:2px; }
   .eyes span{
-    width:9px;height:9px;border-radius:50%;
+    width:7px;height:7px;border-radius:50%;
     background:var(--accent);
     box-shadow:0 0 10px rgba(232,163,61,0.7);
     animation:blink 4.5s infinite ease-in-out;
@@ -91,28 +91,28 @@
   @keyframes blink{ 0%,92%,100%{transform:scaleY(1);} 95%{transform:scaleY(0.12);} }
   h1{
     font-family:'Fraunces', serif; font-style:italic; font-weight:600;
-    font-size:clamp(1.5rem, 6vh, 2.3rem); margin:0; letter-spacing:0.5px;
+    font-size:clamp(1.25rem, 4.2vh, 1.8rem); margin:0; letter-spacing:0.5px;
   }
   .tag{
-    color:var(--ink-dim); font-size:0.72rem; letter-spacing:0.07em;
-    text-transform:uppercase; margin-top:2px;
+    color:var(--ink-dim); font-size:0.66rem; letter-spacing:0.07em;
+    text-transform:uppercase; margin-top:1px;
   }
   .rules{
     text-align:center;
     color:var(--ink-dim);
-    font-size:0.72rem;
-    line-height:1.4;
-    margin:min(1vh,8px) auto;
-    max-width:360px;
+    font-size:0.64rem;
+    line-height:1.25;
+    margin:min(0.6vh,5px) auto;
+    max-width:340px;
     flex:0 0 auto;
   }
   .rules b{color:var(--ink); font-weight:600;}
 
   .statbar{
     display:flex; justify-content:space-between; align-items:center;
-    margin-bottom:min(1.2vh,10px); padding:8px 14px;
+    margin-bottom:min(0.6vh,6px); padding:6px 12px;
     background:var(--surface); border:1px solid var(--line); border-radius:14px;
-    font-size:0.8rem; color:var(--ink-dim);
+    font-size:0.76rem; color:var(--ink-dim);
     flex:0 0 auto;
   }
   .statbar .val{
@@ -122,20 +122,20 @@
   .hearts{ letter-spacing:2px; }
   .hearts .lost{ opacity:0.25; filter:grayscale(1); }
   .selectbar{
-    display:flex; gap:8px; margin-bottom:min(1.2vh,10px); flex:0 0 auto;
+    display:flex; gap:8px; margin-bottom:min(0.6vh,6px); flex:0 0 auto;
   }
   .selectbar .field{
-    flex:1; display:flex; flex-direction:column; gap:3px;
+    flex:1; display:flex; flex-direction:column; gap:2px;
   }
   .selectbar label{
-    font-size:0.66rem; color:var(--ink-dim); letter-spacing:0.06em; text-transform:uppercase;
+    font-size:0.6rem; color:var(--ink-dim); letter-spacing:0.06em; text-transform:uppercase;
     padding-left:2px;
   }
   .selectbar select{
     width:100%;
     background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
-    font-family:'Space Grotesk', sans-serif; font-size:0.8rem; font-weight:500;
-    padding:7px 8px; border-radius:10px;
+    font-family:'Space Grotesk', sans-serif; font-size:0.78rem; font-weight:500;
+    padding:6px 8px; border-radius:10px;
   }
 
   .board{
@@ -147,11 +147,13 @@
     box-shadow:0 20px 40px -20px rgba(0,0,0,0.6);
     opacity:1;
     transition:opacity 0.15s ease;
-    flex:0 1 auto;
+    flex:1 1 auto;
     min-height:0;
+    min-width:0;
     display:flex;
     align-items:center;
     justify-content:center;
+    overflow:hidden;
   }
   .board.generating{ opacity:0.35; pointer-events:none; }
   .grid{
@@ -164,8 +166,8 @@
     touch-action:none;
     width:100%;
     height:100%;
-    max-width:min(80vw, 55vh);
-    max-height:min(80vw, 55vh);
+    max-width:100%;
+    max-height:100%;
   }
   .cell{
     display:flex; align-items:center; justify-content:center;
@@ -204,24 +206,24 @@
   .cell.selected .fill{ box-shadow:inset 0 0 0 2px rgba(244,238,224,0.7); }
   .cell:active .fill{ filter:brightness(1.08); }
 
-  .modebar{ display:flex; gap:8px; margin-top:min(1.2vh,10px); flex:0 0 auto; }
+  .modebar{ display:flex; gap:8px; margin-top:min(0.6vh,6px); flex:0 0 auto; }
   .mode-btn{
-    flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
+    flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
     background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
-    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.82rem;
-    padding:10px 6px; border-radius:12px; cursor:pointer;
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.78rem;
+    padding:8px 6px; border-radius:12px; cursor:pointer;
     transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
   }
-  .mode-btn .ic{ font-size:1.3rem; vertical-align:-3px; display:inline-block; }
+  .mode-btn .ic{ font-size:1.15rem; vertical-align:-3px; display:inline-block; }
   .mode-btn.active{
     border-color:var(--accent); background:var(--accent-dim); color:var(--ink);
   }
 
-  .toolbar{ display:flex; gap:8px; margin-top:min(1vh,8px); flex:0 0 auto; }
+  .toolbar{ display:flex; gap:8px; margin-top:min(0.5vh,5px); flex:0 0 auto; }
   .btn{
     flex:1; background:var(--surface); border:1px solid var(--line); color:var(--ink);
-    font-family:'Space Grotesk', sans-serif; font-weight:500; font-size:0.78rem;
-    padding:10px 6px; border-radius:12px; cursor:pointer;
+    font-family:'Space Grotesk', sans-serif; font-weight:500; font-size:0.74rem;
+    padding:8px 6px; border-radius:12px; cursor:pointer;
     transition:border-color 0.15s ease, background 0.15s ease;
   }
   .btn:hover{ border-color:var(--line-strong); background:var(--surface-2); }
@@ -261,8 +263,8 @@
   .card.sad h2{ color:var(--miss); }
 
   footer{
-    text-align:center; color:var(--ink-dim); font-size:0.68rem;
-    margin-top:min(1.4vh,12px); letter-spacing:0.02em; line-height:1.5;
+    text-align:center; color:var(--ink-dim); font-size:0.6rem;
+    margin-top:min(0.7vh,6px); letter-spacing:0.02em; line-height:1.35;
     flex:0 0 auto;
   }
 
@@ -1280,6 +1282,21 @@ let currentPuzzleCode = '';
 
 function boardEl(){ return document.getElementById('grid'); }
 
+/* ---------- keep the board a perfect square that fills all available room ---------- */
+function sizeBoard(){
+  const wrap = document.getElementById('boardWrap');
+  const grid = document.getElementById('grid');
+  if(!wrap || !grid) return;
+  const cs = getComputedStyle(wrap);
+  const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+  const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const availW = wrap.clientWidth - padX;
+  const availH = wrap.clientHeight - padY;
+  const size = Math.max(0, Math.floor(Math.min(availW, availH)));
+  grid.style.width = size + 'px';
+  grid.style.height = size + 'px';
+}
+
 function buildGridDOM(){
   const el = boardEl();
   el.innerHTML = '';
@@ -1299,6 +1316,7 @@ function buildGridDOM(){
     }
   }
   applyRegionBorders();
+  sizeBoard();
 }
 
 function applyRegionBorders(){
@@ -1667,9 +1685,16 @@ function dismissTitleScreen(){
   Music.autoStart();
   titleScreen.classList.add('hide');
   gameWrap.classList.add('revealed');
-  titleScreen.addEventListener('transitionend', ()=>{ titleScreen.style.display = 'none'; }, { once:true });
+  titleScreen.addEventListener('transitionend', ()=>{ titleScreen.style.display = 'none'; sizeBoard(); }, { once:true });
 }
 titleScreen.addEventListener('click', dismissTitleScreen, { once:true });
+
+if('ResizeObserver' in window){
+  new ResizeObserver(()=> sizeBoard()).observe(document.getElementById('boardWrap'));
+} else {
+  window.addEventListener('resize', sizeBoard);
+  window.addEventListener('orientationchange', sizeBoard);
+}
 
 boardEl().addEventListener('pointerdown', onGridPointerDown);
 document.addEventListener('pointermove', onDocPointerMove);
