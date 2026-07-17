@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Owldoku glowing eyes icon">
+  <defs>
+    <radialGradient id="bgGlow" cx="30%" cy="22%" r="75%">
+      <stop offset="0%" stop-color="#3a2f52"/>
+      <stop offset="55%" stop-color="#241d33"/>
+      <stop offset="100%" stop-color="#17131f"/>
+    </radialGradient>
+    <filter id="eyeGlow" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="20"/>
+    </filter>
+    <filter id="eyeGlowSoft" x="-150%" y="-150%" width="400%" height="400%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <!-- background: site's dark surface -->
+  <rect width="512" height="512" fill="url(#bgGlow)"/>
+
+  <!-- left eye -->
+  <circle cx="154.5" cy="248" r="48" fill="#e8a33d" opacity="0.55" filter="url(#eyeGlow)"/>
+  <circle cx="154.5" cy="248" r="48" fill="#e8a33d" opacity="0.75" filter="url(#eyeGlowSoft)"/>
+  <circle cx="154.5" cy="248" r="48" fill="#e8a33d"/>
+
+  <!-- right eye -->
+  <circle cx="357.5" cy="248" r="48" fill="#e8a33d" opacity="0.55" filter="url(#eyeGlow)"/>
+  <circle cx="357.5" cy="248" r="48" fill="#e8a33d" opacity="0.75" filter="url(#eyeGlowSoft)"/>
+  <circle cx="357.5" cy="248" r="48" fill="#e8a33d"/>
+</svg>
