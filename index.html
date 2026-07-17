@@ -1625,13 +1625,35 @@ async function captureResultImage(won){
   // The owl icon's gradient/filter fills (url(#owlWingGrad) etc.) are defined in a
   // shared <defs> block elsewhere in the page. html2canvas rasterizes each <svg>
   // in isolation, so it can't resolve those cross-element references and the owl
-  // renders as an outline with no fill. Clone the defs directly into the icon's
-  // own <svg> just for the capture so every reference resolves locally.
+  // renders as an outline with no fill. We clone the defs into the icon's own
+  // <svg> just for the capture — but the clone must use fresh, unique ids. Reusing
+  // the original ids creates two elements with the same id in the document, and
+  // browsers can then get confused about which gradient to paint, occasionally
+  // leaving the *live game board's* owls unfilled too. Renaming avoids that.
   const iconSvg = cardEl.querySelector('.paw svg');
   const sharedDefs = document.querySelector('#sharedIconDefs defs');
   let injectedDefs = null;
+  const restoreRefs = [];
+
   if(iconSvg && sharedDefs){
+    const suffix = `cap${Date.now()}`;
     injectedDefs = sharedDefs.cloneNode(true);
+    const idMap = {};
+    injectedDefs.querySelectorAll('[id]').forEach(node => {
+      const newId = `${node.id}-${suffix}`;
+      idMap[node.id] = newId;
+      node.id = newId;
+    });
+    const refAttrs = ['fill','stroke','filter'];
+    iconSvg.querySelectorAll('*').forEach(node => {
+      refAttrs.forEach(attr => {
+        const val = node.getAttribute(attr);
+        if(val && val.startsWith('url(#') && idMap[val.slice(5,-1)]){
+          restoreRefs.push([node, attr, val]);
+          node.setAttribute(attr, `url(#${idMap[val.slice(5,-1)]})`);
+        }
+      });
+    });
     iconSvg.insertBefore(injectedDefs, iconSvg.firstChild);
   }
 
@@ -1645,6 +1667,7 @@ async function captureResultImage(won){
     console.warn('Screenshot capture failed, sharing link only', e);
     return null;
   }finally{
+    restoreRefs.forEach(([node, attr, val]) => node.setAttribute(attr, val));
     if(injectedDefs) injectedDefs.remove();
   }
 }
