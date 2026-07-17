@@ -162,6 +162,9 @@
     cursor:pointer;
     user-select:none;
     touch-action:none;
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
   }
   .cell .fill{
     position:absolute; inset:1px;
@@ -170,10 +173,12 @@
   .cell .glyph{
     position:relative;
     z-index:2;
-    font-size:1.6rem;
+    width:64%;
+    height:64%;
     line-height:1;
     touch-action:none;
   }
+  .cell .glyph svg{ width:100%; height:100%; display:block; }
   .cell .xmark{
     position:relative; z-index:2;
     width:38%; height:38%;
@@ -388,7 +393,10 @@
     <div class="paw" id="winOwlIcon"></div>
     <h2>Every owl is home</h2>
     <p id="winStats">Solved in 00:00.</p>
-    <button class="btn primary" id="playAgainBtn" style="width:100%;">Play again</button>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" id="shareWinBtn" style="width:100%;">Share puzzle</button>
+      <button class="btn primary" id="playAgainBtn" style="width:100%;">Play again</button>
+    </div>
   </div>
 </div>
 
@@ -401,6 +409,7 @@
       <button class="btn" id="retryBtn" style="width:100%;">Retry board</button>
       <button class="btn primary" id="freshBtn" style="width:100%;">New puzzle</button>
     </div>
+    <button class="btn" id="shareLoseBtn" style="width:100%; margin-top:8px;">Share this puzzle</button>
   </div>
 </div>
 
@@ -1034,6 +1043,49 @@ function generatePuzzle(N){
   return {N, perm, regionOf, clues};
 }
 
+/* ---------- puzzle sharing (encode exact board into a URL-safe code) ---------- */
+const SITE_URL = 'https://rethy11.github.io/Owldoku/';
+
+function b64urlEncode(str){
+  return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function b64urlDecode(str){
+  str = str.replace(/-/g,'+').replace(/_/g,'/');
+  while(str.length % 4) str += '=';
+  return atob(str);
+}
+
+function packPuzzle(N, regionOf, clues, perm){
+  let regionStr = '';
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) regionStr += regionOf[r][c].toString(36);
+  let clueStr = '';
+  for(let r=0;r<N;r++) clueStr += (clues[r]!==undefined) ? clues[r].toString(36) : '.';
+  let permStr = '';
+  for(let r=0;r<N;r++) permStr += perm[r].toString(36);
+  return b64urlEncode(`${N}|${regionStr}|${clueStr}|${permStr}`);
+}
+
+function unpackPuzzle(code){
+  const raw = b64urlDecode(code);
+  const parts = raw.split('|');
+  if(parts.length !== 4) return null;
+  const [nStr, regionStr, clueStr, permStr] = parts;
+  const N = parseInt(nStr, 10);
+  if(!N || regionStr.length !== N*N || clueStr.length !== N || permStr.length !== N) return null;
+  const regionOf = Array.from({length:N},()=>Array(N).fill(0));
+  for(let i=0;i<N*N;i++){
+    regionOf[Math.floor(i/N)][i%N] = parseInt(regionStr[i], 36);
+  }
+  const clues = {};
+  for(let r=0;r<N;r++){
+    const ch = clueStr[r];
+    if(ch !== '.') clues[r] = parseInt(ch, 36);
+  }
+  const perm = [];
+  for(let r=0;r<N;r++) perm.push(parseInt(permStr[r], 36));
+  return {N, regionOf, clues, perm};
+}
+
 /* ---------- game state ---------- */
 const REGION_COLORS_CACHE = {};
 function regionColors(N){
@@ -1147,6 +1199,7 @@ let mode = 'owl'; // 'owl' | 'x'
 let dragging = false;
 let dragAction = null; // 'add' | 'remove'
 let hintUsed = false;
+let currentPuzzleCode = '';
 
 function boardEl(){ return document.getElementById('grid'); }
 
@@ -1404,11 +1457,8 @@ function hint(){
   checkWin();
 }
 
-async function newGame(){
-  N = parseInt(document.getElementById('difficulty').value, 10);
-  document.getElementById('boardWrap').classList.add('generating');
-  await new Promise(res=>setTimeout(res, 10));
-  const result = generatePuzzle(N);
+function startPuzzle(result){
+  N = result.N;
   regionOf = result.regionOf;
   solutionPerm = result.perm;
   given = Array.from({length:N},()=>Array(N).fill(false));
@@ -1427,11 +1477,79 @@ async function newGame(){
   updateHintButton();
   document.getElementById('winOverlay').classList.remove('show');
   document.getElementById('loseOverlay').classList.remove('show');
+  currentPuzzleCode = packPuzzle(N, regionOf, result.clues, solutionPerm);
+  try{
+    const url = new URL(location.href);
+    url.searchParams.set('p', currentPuzzleCode);
+    history.replaceState(null, '', url);
+  }catch(e){ /* sandboxed environments may block history API — ignore */ }
   buildGridDOM();
   render();
   startTimer();
+}
+
+async function newGame(){
+  N = parseInt(document.getElementById('difficulty').value, 10);
+  document.getElementById('boardWrap').classList.add('generating');
+  await new Promise(res=>setTimeout(res, 10));
+  const result = generatePuzzle(N);
+  startPuzzle(result);
   document.getElementById('boardWrap').classList.remove('generating');
   Sound.newPuzzle();
+}
+
+function loadPuzzleFromURL(){
+  try{
+    const code = new URLSearchParams(location.search).get('p');
+    if(!code) return false;
+    const result = unpackPuzzle(code);
+    if(!result) return false;
+    document.getElementById('difficulty').value = String(result.N);
+    startPuzzle(result);
+    return true;
+  }catch(e){
+    console.warn('Could not load shared puzzle', e);
+    return false;
+  }
+}
+
+function shareFeedback(btn, msg){
+  const original = btn.textContent;
+  btn.textContent = msg;
+  btn.disabled = true;
+  setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 1700);
+}
+
+async function sharePuzzle(btn){
+  if(!currentPuzzleCode) return;
+  Sound.button();
+  let shareUrl;
+  try{
+    const url = new URL(SITE_URL);
+    url.searchParams.set('p', currentPuzzleCode);
+    shareUrl = url.toString();
+  }catch(e){
+    shareUrl = SITE_URL + '?p=' + encodeURIComponent(currentPuzzleCode);
+  }
+  const shareData = {
+    title: 'Owldoku',
+    text: `Can you solve this ${N}\u00d7${N} Owldoku?`,
+    url: shareUrl
+  };
+  if(navigator.share){
+    try{
+      await navigator.share(shareData);
+      return;
+    }catch(e){
+      if(e && e.name==='AbortError') return; // user cancelled the native sheet
+    }
+  }
+  try{
+    await navigator.clipboard.writeText(shareUrl);
+    shareFeedback(btn, 'Link copied!');
+  }catch(e){
+    shareFeedback(btn, 'Copy failed');
+  }
 }
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{ if(!gameOver){ Sound.button(); resetMarksOnly(); } });
@@ -1441,6 +1559,8 @@ document.getElementById('playAgainBtn').addEventListener('click', newGame);
 document.getElementById('retryBtn').addEventListener('click', ()=>{ Sound.button(); resetMarksOnly(); });
 document.getElementById('freshBtn').addEventListener('click', newGame);
 document.getElementById('difficulty').addEventListener('change', newGame);
+document.getElementById('shareWinBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget));
+document.getElementById('shareLoseBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget));
 
 const owlModeBtn = document.getElementById('owlModeBtn');
 const xModeBtn = document.getElementById('xModeBtn');
@@ -1481,7 +1601,9 @@ document.getElementById('owlModeIcon').innerHTML = OWL_SVG;
 document.getElementById('winOwlIcon').innerHTML = OWL_HAPPY_SVG;
 document.getElementById('loseOwlIcon').innerHTML = OWL_SAD_SVG;
 
-newGame();
+if(!loadPuzzleFromURL()){
+  newGame();
+}
 </script>
 
 </body>
