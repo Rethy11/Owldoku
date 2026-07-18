@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1320580594388108"
+     crossorigin="anonymous"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Owldoku</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1320580594388108"
-     crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -277,28 +277,23 @@
     flex:0 0 auto;
   }
 
-  /* Ad banner: pinned to the bottom of the game page only, never the title
-     screen. Capped to a standard mobile banner size (max 320x50 rendered
-     area) no matter what AdSense's "auto" responsive format tries to do -
-     the slot's own box is a hard ceiling and clips anything larger. */
-  .ad-slot{
+  .ad-banner{
     flex:0 0 auto;
-    width:100%;
-    max-width:320px;
-    height:50px;
-    max-height:50px;
-    margin:min(0.6vh,6px) auto 0;
-    overflow:hidden;
     display:flex;
     align-items:center;
     justify-content:center;
+    margin-top:min(0.6vh,6px);
+    width:100%;
+    max-width:728px;
+    height:90px;
+    max-height:90px;
+    overflow:hidden;
+    align-self:center;
   }
-  .ad-slot .adsbygoogle{
-    display:block !important;
-    width:100% !important;
-    height:50px !important;
-    max-height:50px !important;
-    overflow:hidden !important;
+  .ad-banner ins.adsbygoogle{
+    width:728px;
+    height:90px;
+    max-width:100%;
   }
 
   @media (prefers-reduced-motion: reduce){ .eyes span{ animation:none !important; } }
@@ -449,18 +444,13 @@
 
   <footer>owl mode: tap to place or remove an owl<br>mark mode: tap or drag to add or clear ✕ marks</footer>
 
-  <div class="ad-slot">
+  <div class="ad-banner">
     <ins class="adsbygoogle"
-         style="display:block"
+         style="display:inline-block;width:728px;height:90px"
          data-ad-client="ca-pub-1320580594388108"
-         data-ad-slot="4873437743"
-         data-ad-format="auto"
-         data-full-width-responsive="true"></ins>
+         data-ad-slot="4873437743"></ins>
   </div>
 </div>
-<script>
-  (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
 
 <div class="overlay" id="winOverlay">
   <div class="card">
@@ -1833,6 +1823,10 @@ document.getElementById('loseOwlIcon').innerHTML = OWL_SAD_SVG;
 if(!loadPuzzleFromURL()){
   newGame();
 }
+
+try{
+  (adsbygoogle = window.adsbygoogle || []).push({});
+}catch(e){ /* ad blocked or failed to load — ignore */ }
 </script>
 
 </body>
