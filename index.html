@@ -1234,21 +1234,25 @@ function b64urlDecode(str){
   return atob(str);
 }
 
-function packPuzzle(N, regionOf, clues, perm){
+const DIFF_CODE = { easy:'e', medium:'m', hard:'h' };
+const DIFF_FROM_CODE = { e:'easy', m:'medium', h:'hard' };
+
+function packPuzzle(N, regionOf, clues, perm, difficulty){
   let regionStr = '';
   for(let r=0;r<N;r++) for(let c=0;c<N;c++) regionStr += regionOf[r][c].toString(36);
   let clueStr = '';
   for(let r=0;r<N;r++) clueStr += (clues[r]!==undefined) ? clues[r].toString(36) : '.';
   let permStr = '';
   for(let r=0;r<N;r++) permStr += perm[r].toString(36);
-  return b64urlEncode(`${N}|${regionStr}|${clueStr}|${permStr}`);
+  const diffCode = DIFF_CODE[difficulty] || 'm';
+  return b64urlEncode(`${N}|${regionStr}|${clueStr}|${permStr}|${diffCode}`);
 }
 
 function unpackPuzzle(code){
   const raw = b64urlDecode(code);
   const parts = raw.split('|');
-  if(parts.length !== 4) return null;
-  const [nStr, regionStr, clueStr, permStr] = parts;
+  if(parts.length !== 4 && parts.length !== 5) return null;
+  const [nStr, regionStr, clueStr, permStr, diffCode] = parts;
   const N = parseInt(nStr, 10);
   if(!N || regionStr.length !== N*N || clueStr.length !== N || permStr.length !== N) return null;
   const regionOf = Array.from({length:N},()=>Array(N).fill(0));
@@ -1262,7 +1266,9 @@ function unpackPuzzle(code){
   }
   const perm = [];
   for(let r=0;r<N;r++) perm.push(parseInt(permStr[r], 36));
-  return {N, regionOf, clues, perm};
+  // older shared links (before difficulty was encoded) omit the 5th field
+  const difficulty = DIFF_FROM_CODE[diffCode] || null;
+  return {N, regionOf, clues, perm, difficulty};
 }
 
 /* ---------- game state ---------- */
@@ -1814,7 +1820,7 @@ function startPuzzle(result){
   document.getElementById('winOverlay').classList.remove('show');
   document.getElementById('loseOverlay').classList.remove('show');
   document.getElementById('newBestBadge').classList.remove('show');
-  currentPuzzleCode = packPuzzle(N, regionOf, result.clues, solutionPerm);
+  currentPuzzleCode = packPuzzle(N, regionOf, result.clues, solutionPerm, currentDifficulty);
   try{
     const url = new URL(location.href);
     url.searchParams.set('p', currentPuzzleCode);
@@ -1843,6 +1849,7 @@ function loadPuzzleFromURL(){
     const result = unpackPuzzle(code);
     if(!result) return false;
     document.getElementById('sizeSelect').value = String(result.N);
+    if(result.difficulty) document.getElementById('difficultySelect').value = result.difficulty;
     startPuzzle(result);
     return true;
   }catch(e){
