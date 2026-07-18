@@ -325,6 +325,54 @@
   .tut-nav{ display:flex; gap:8px; }
   .tut-nav .btn.ghost{ visibility:hidden; }
 
+  .music-card{ max-width:320px; text-align:left; max-height:90vh; overflow-y:auto; }
+  .music-card h2{
+    text-align:center; font-family:'Fraunces', serif; font-style:italic;
+    font-size:1.3rem; margin:0 0 12px;
+  }
+  .music-now{ text-align:center; margin-bottom:14px; }
+  .music-now-label{
+    font-size:0.6rem; color:var(--ink-dim); letter-spacing:0.08em;
+    text-transform:uppercase; margin-bottom:2px;
+  }
+  .music-now-name{ font-weight:600; font-size:0.98rem; color:var(--accent); }
+  .music-transport{ display:flex; justify-content:center; gap:10px; margin-bottom:16px; }
+  .music-ctrl-btn{
+    width:42px; height:42px; border-radius:50%; flex:0 0 auto;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
+    font-size:1.05rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+  .music-ctrl-btn:hover{ border-color:var(--line-strong); }
+  .music-ctrl-btn.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+  .music-ctrl-btn.muted{ color:var(--miss); border-color:var(--miss); background:rgba(224,104,90,0.14); }
+  .music-volume-row{ display:flex; align-items:center; gap:8px; margin-bottom:18px; }
+  .music-volume-row .music-vol-ic{ font-size:0.85rem; color:var(--ink-dim); flex:0 0 auto; }
+  .music-volume-row input[type="range"]{
+    flex:1; accent-color:var(--accent); height:4px; cursor:pointer;
+  }
+  .music-song-label{
+    font-size:0.6rem; color:var(--ink-dim); letter-spacing:0.08em;
+    text-transform:uppercase; margin-bottom:6px;
+  }
+  .music-song-list{
+    display:flex; flex-direction:column; gap:5px;
+    max-height:min(46vh, 260px); overflow-y:auto; margin-bottom:14px;
+  }
+  .music-song-btn{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    width:100%; text-align:left; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-dim);
+    font-family:'Space Grotesk', sans-serif; font-size:0.78rem; font-weight:500;
+    padding:7px 12px; border-radius:10px; cursor:pointer;
+    transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .music-song-btn:hover{ border-color:var(--line-strong); }
+  .music-song-btn.playing{ border-color:var(--accent); color:var(--ink); background:var(--accent-dim); }
+  .music-song-num{
+    font-family:'JetBrains Mono', monospace; font-size:0.66rem; opacity:0.6; margin-right:6px;
+  }
+  .music-song-note{ color:var(--accent); }
+
   #winOverlay.show .card{ animation: winPop 0.55s cubic-bezier(0.22,1.1,0.32,1.2); }
   @keyframes winPop{
     0%{ transform:scale(0.7) rotate(-3deg); opacity:0; }
@@ -489,7 +537,7 @@
 <div class="wrap" id="gameWrap">
   <header>
     <button class="help-btn" id="helpBtn" aria-label="How to play" title="How to play">?</button>
-    <button class="music-toggle on" id="musicToggle" aria-label="Toggle background music" title="Midnight rain lofi music">🎵</button>
+    <button class="music-toggle on" id="musicToggle" aria-label="Open music settings" title="Music settings">🔊</button>
     <div class="eyes"><span></span><span></span></div>
     <h1>Owldoku</h1>
     <div class="tag">one owl per color, row & column</div>
@@ -587,6 +635,30 @@
       <button class="btn primary" id="freshBtn" style="width:100%;">New puzzle</button>
     </div>
     <button class="btn" id="shareLoseBtn" style="width:100%; margin-top:8px;">Share this puzzle</button>
+  </div>
+</div>
+
+<div class="overlay" id="musicOverlay">
+  <div class="card music-card">
+    <h2>Music</h2>
+    <div class="music-now">
+      <div class="music-now-label">Now playing</div>
+      <div class="music-now-name" id="musicNowName">&nbsp;</div>
+    </div>
+    <div class="music-transport">
+      <button type="button" class="music-ctrl-btn" id="musicPrevBtn" aria-label="Previous song" title="Previous song"></button>
+      <button type="button" class="music-ctrl-btn" id="musicNextBtn" aria-label="Skip song" title="Skip song"></button>
+      <button type="button" class="music-ctrl-btn" id="musicLoopBtn" aria-label="Loop current song" title="Loop current song"></button>
+      <button type="button" class="music-ctrl-btn" id="musicMuteBtn" aria-label="Mute music" title="Mute">🔊</button>
+    </div>
+    <div class="music-volume-row">
+      <span class="music-vol-ic">🔈</span>
+      <input type="range" id="musicVolume" min="0" max="100" value="80" aria-label="Music volume">
+      <span class="music-vol-ic">🔊</span>
+    </div>
+    <div class="music-song-label">Songs</div>
+    <div class="music-song-list" id="musicSongList"></div>
+    <button class="btn primary" id="musicCloseBtn" style="width:100%;">Done</button>
   </div>
 </div>
 
@@ -825,34 +897,129 @@ const Sound = (function(){
   };
 })();
 
-/* ---------- music: "midnight in Tokyo, rain" lofi ambience ---------- */
-/* Generative & endless — a 4-chord jazzy loop (~27s/cycle) with slow filter
-   sweeps, sparse Rhodes-style melody, soft brushed lofi beat, steady rain
-   wash with drifting swells, occasional window-drip pings, and a whisper
-   of vinyl crackle. Runs well past 3 minutes on its own, looping seamlessly
-   with ever-changing melody so it never feels static. */
+/* ---------- music: a small playlist of generative lofi ambience ---------- */
+/* Each song is generative & endless — a 4-chord loop with slow filter
+   sweeps, a sparse melody, an optional lofi beat, optional rain wash,
+   occasional window-drip pings, and a whisper of vinyl crackle. All five
+   songs are treated as equivalent-length tracks (2:30 each) so "loop"
+   and "skip" behave like a real playlist even though the underlying
+   music is procedurally generated rather than a fixed-length recording. */
 const Music = (function(){
   let ctx = null;
   let master = null, padBus = null, melodyBus = null, drumBus = null, rainBus = null;
   let reverb = null, reverbSend = null;
   let delay = null, delayFeedback = null, delaySend = null;
   let rainSrc = null, rainLfoOsc = null;
-  let running = false, wantsToPlay = true, started = false, starting = false;
+  let running = false, muted = false, started = false, starting = false;
   let schedulerId = null;
-  const BPM = 72;
-  const SPB = 60/BPM;              // seconds per beat
+  let songIndex = 0, loopSong = false, volume = 0.8;
+  const MAX_GAIN = 0.85;
+  const SONG_LENGTH_MS = 150000; // 2:30 — same "length" for every song
+  let autoAdvanceId = null;
   const BEATS_PER_BAR = 4;
   const BARS_PER_CHORD = 2;
   const SCHEDULE_AHEAD = 0.15;
   const LOOKAHEAD_MS = 30;
-  let nextNoteTime = 0, beatCount = 0, chordIdx = -1;
+  let nextNoteTime = 0, beatCount = 0, chordIdx = 0, chordStep = -1;
 
-  const CHORDS = [
-    { notes:[220.00,261.63,329.63,392.00,493.88], scale:[220.00,246.94,261.63,293.66,329.63,392.00,440.00,493.88] }, // Am9
-    { notes:[146.83,174.61,220.00,261.63,329.63], scale:[146.83,174.61,196.00,220.00,261.63,293.66,329.63,349.23] }, // Dm9
-    { notes:[196.00,246.94,293.66,369.99,440.00], scale:[196.00,220.00,246.94,293.66,329.63,369.99,392.00,440.00] }, // Gmaj7
-    { notes:[130.81,164.81,196.00,246.94,329.63], scale:[130.81,164.81,196.00,220.00,246.94,293.66,329.63,392.00] }  // Cmaj7
+  const SONGS = [
+    {
+      // The chord progression is the star here: it lingers three bars per
+      // chord, sits louder in the mix, and the melody stays out of its way.
+      name:'Midnight in Tokyo, Rain',
+      bpm:72, rain:true, drums:'full', barsPerChord:3,
+      melodyChance:0.22, dripChance:0.1, crackleChance:0.12,
+      melodyStyle:'pad', padFilter:[700,1500,650], melodyFilter:2400, padGainMult:1.3,
+      chords:[
+        { notes:[220.00,261.63,329.63,392.00,493.88], scale:[220.00,246.94,261.63,293.66,329.63,392.00,440.00,493.88] }, // Am9
+        { notes:[146.83,174.61,220.00,261.63,329.63], scale:[146.83,174.61,196.00,220.00,261.63,293.66,329.63,349.23] }, // Dm9
+        { notes:[196.00,246.94,293.66,369.99,440.00], scale:[196.00,220.00,246.94,293.66,329.63,369.99,392.00,440.00] }, // Gmaj7
+        { notes:[130.81,164.81,196.00,246.94,329.63], scale:[130.81,164.81,196.00,220.00,246.94,293.66,329.63,392.00] }  // Cmaj7
+      ]
+    },
+    {
+      // Slowest and sparsest track; a soft music-box chime — new to the
+      // playlist — rings out rarely over the held chords.
+      name:'Amber Hush',
+      bpm:60, rain:false, drums:'none',
+      melodyChance:0.22, dripChance:0, crackleChance:0.06,
+      melodyStyle:'pad', padFilter:[450,950,500], melodyFilter:1700,
+      instrument:'bell', instrumentChance:0.05,
+      chords:[
+        { notes:[174.61,220.00,261.63,329.63,440.00], scale:[174.61,196.00,220.00,233.08,261.63,293.66,329.63,349.23] }, // Fmaj7
+        { notes:[130.81,164.81,196.00,246.94,329.63], scale:[130.81,146.83,164.81,174.61,196.00,220.00,246.94,261.63] }, // Cmaj7
+        { notes:[146.83,174.61,220.00,261.63,349.23], scale:[146.83,164.81,174.61,196.00,220.00,246.94,261.63,293.66] }, // Dm7
+        { notes:[116.54,146.83,174.61,220.00,293.66], scale:[116.54,130.81,146.83,155.56,174.61,196.00,220.00] }        // Bbmaj7
+      ]
+    },
+    {
+      // Same four chords as a straight loop would give, but the order
+      // takes a different, less predictable path through them.
+      name:'Paper Lantern Drift',
+      bpm:84, rain:false, drums:'light',
+      melodyChance:0.5, dripChance:0.04, crackleChance:0.08,
+      melodyStyle:'pluck', padFilter:[650,1400,600], melodyFilter:3000,
+      chordOrder:[0,2,1,3],
+      chords:[
+        { notes:[196.00,246.94,293.66,392.00,493.88], scale:[196.00,220.00,246.94,261.63,293.66,329.63,369.99,392.00] }, // Gadd9
+        { notes:[146.83,185.00,220.00,293.66,329.63], scale:[146.83,164.81,185.00,196.00,220.00,246.94,277.18,293.66] }, // Dadd9
+        { notes:[164.81,196.00,246.94,293.66,392.00], scale:[164.81,185.00,196.00,220.00,246.94,261.63,293.66,329.63] }, // Em7
+        { notes:[130.81,164.81,196.00,246.94,293.66], scale:[130.81,146.83,164.81,174.61,196.00,220.00,246.94,261.63] }  // Cmaj7add9
+      ]
+    },
+    {
+      // A warm electric-piano-style "keys" voice — the second new
+      // instrument — answers the pad every so often.
+      name:'Late Bus Home',
+      bpm:66, rain:true, drums:'sparse',
+      melodyChance:0.3, dripChance:0.15, crackleChance:0.15,
+      melodyStyle:'pad', padFilter:[600,1200,550], melodyFilter:2000,
+      instrument:'keys', instrumentChance:0.09,
+      chords:[
+        { notes:[164.81,196.00,246.94,293.66,369.99], scale:[164.81,185.00,196.00,220.00,246.94,261.63,293.66,329.63] }, // Em9
+        { notes:[130.81,164.81,196.00,246.94,329.63], scale:[130.81,146.83,164.81,174.61,196.00,220.00,246.94,261.63] }, // Cmaj7
+        { notes:[110.00,130.81,164.81,196.00,246.94], scale:[110.00,123.47,130.81,146.83,164.81,174.61,196.00,220.00] }, // Am9
+        { notes:[123.47,146.83,185.00,220.00,293.66], scale:[123.47,138.59,146.83,164.81,185.00,196.00,220.00,246.94] }  // Bm7
+      ]
+    },
+    {
+      // Fastest, brightest track; the progression ping-pongs back and
+      // forth instead of cycling forward, so it never quite loops the
+      // same way twice in a row.
+      name:'Copper Skyline',
+      bpm:96, rain:false, drums:'full', barsPerChord:1,
+      melodyChance:0.55, dripChance:0.03, crackleChance:0.05,
+      melodyStyle:'pluck', padFilter:[800,1700,750], melodyFilter:3400,
+      chordOrder:[0,1,2,3,2,1],
+      chords:[
+        { notes:[261.63,329.63,392.00,493.88,587.33], scale:[261.63,293.66,329.63,349.23,392.00,440.00,493.88,523.25] }, // Cadd9
+        { notes:[196.00,246.94,293.66,369.99,440.00], scale:[196.00,220.00,246.94,261.63,293.66,329.63,369.99,392.00] }, // Gadd9
+        { notes:[220.00,261.63,329.63,392.00,493.88], scale:[220.00,246.94,261.63,293.66,329.63,349.23,392.00,440.00] }, // Am7
+        { notes:[174.61,220.00,261.63,329.63,392.00], scale:[174.61,196.00,220.00,233.08,261.63,293.66,329.63,349.23] }  // Fmaj7
+      ]
+    }
   ];
+
+  function currentSong(){ return SONGS[songIndex]; }
+  function spb(){ return 60/currentSong().bpm; }
+  function effectiveGain(){ return muted ? 0.0001 : Math.max(0.0001, volume*MAX_GAIN); }
+
+  function clearAutoAdvance(){
+    if(autoAdvanceId){ clearTimeout(autoAdvanceId); autoAdvanceId = null; }
+  }
+  function armAutoAdvance(){
+    clearAutoAdvance();
+    if(loopSong || !running || muted) return;
+    autoAdvanceId = setTimeout(()=>{ next(); }, SONG_LENGTH_MS);
+  }
+
+  function applyRainTarget(){
+    if(!ctx || !rainBus) return;
+    const target = currentSong().rain ? 0.22 : 0.0001;
+    rainBus.gain.cancelScheduledValues(ctx.currentTime);
+    rainBus.gain.setValueAtTime(rainBus.gain.value, ctx.currentTime);
+    rainBus.gain.linearRampToValueAtTime(target, ctx.currentTime + 1.0);
+  }
 
   function makeImpulse(c, duration, decay){
     const rate = c.sampleRate, len = Math.floor(rate*duration);
@@ -900,7 +1067,7 @@ const Music = (function(){
     reverbSend.connect(reverb); reverb.connect(master);
 
     // soft echo for melody (dreamy lofi delay)
-    delay = ctx.createDelay(2.0); delay.delayTime.value = SPB*0.75;
+    delay = ctx.createDelay(2.0); delay.delayTime.value = spb()*0.75;
     delayFeedback = ctx.createGain(); delayFeedback.gain.value = 0.32;
     const delayFilter = ctx.createBiquadFilter(); delayFilter.type='lowpass'; delayFilter.frequency.value = 2200;
     delay.connect(delayFilter); delayFilter.connect(delayFeedback); delayFeedback.connect(delay);
@@ -910,7 +1077,7 @@ const Music = (function(){
     padBus = ctx.createGain(); padBus.gain.value = 0.5; padBus.connect(master); padBus.connect(reverbSend);
     melodyBus = ctx.createGain(); melodyBus.gain.value = 0.34; melodyBus.connect(master); melodyBus.connect(reverbSend); melodyBus.connect(delaySend);
     drumBus = ctx.createGain(); drumBus.gain.value = 0.5; drumBus.connect(master);
-    rainBus = ctx.createGain(); rainBus.gain.value = 0.22; rainBus.connect(master);
+    rainBus = ctx.createGain(); rainBus.gain.value = 0.0001; rainBus.connect(master);
 
     // rain wash, looping, with a slow breathing swell
     const rainBuf = makeRainBuffer(ctx, 6);
@@ -925,7 +1092,8 @@ const Music = (function(){
     rainSrc.connect(rainHP); rainHP.connect(rainFilter); rainFilter.connect(rainSwell); rainSwell.connect(rainBus);
   }
 
-  function padVoice(freq, t0, dur, bus){
+  function padVoice(freq, t0, dur, bus, padFilter, gainMult){
+    const [fBase, fPeak, fEnd] = padFilter;
     [-4, 0, 4].forEach((detune, i)=>{
       const osc = ctx.createOscillator();
       osc.type = i===1 ? 'sine' : 'triangle';
@@ -933,12 +1101,12 @@ const Music = (function(){
       osc.detune.value = detune;
       const filt = ctx.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.setValueAtTime(700, t0);
-      filt.frequency.linearRampToValueAtTime(1500, t0 + dur*0.5);
-      filt.frequency.linearRampToValueAtTime(650, t0 + dur);
+      filt.frequency.setValueAtTime(fBase, t0);
+      filt.frequency.linearRampToValueAtTime(fPeak, t0 + dur*0.5);
+      filt.frequency.linearRampToValueAtTime(fEnd, t0 + dur);
       filt.Q.value = 0.6;
       const g = ctx.createGain();
-      const peak = 0.11;
+      const peak = 0.11 * (gainMult||1);
       g.gain.setValueAtTime(0, t0);
       g.gain.linearRampToValueAtTime(peak, t0 + dur*0.22);
       g.gain.setValueAtTime(peak, t0 + dur*0.7);
@@ -948,25 +1116,61 @@ const Music = (function(){
     });
   }
 
-  function playChord(chord, t0, dur){
-    chord.notes.forEach(f => padVoice(f, t0, dur, padBus));
+  function playChord(chord, t0, dur, song){
+    chord.notes.forEach(f => padVoice(f, t0, dur, padBus, song.padFilter, song.padGainMult));
   }
 
-  function playMelodyNote(scale, t0){
+  // "bell": a small music-box chime — two clean sine partials, fast pluck-like decay
+  function playBell(freq, t0){
+    [1, 2.76].forEach((mult, i)=>{
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = freq*mult;
+      const g = ctx.createGain();
+      const peak = i===0 ? 0.16 : 0.055;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + (i===0 ? 1.4 : 0.9));
+      osc.connect(g); g.connect(reverbSend); g.connect(master);
+      osc.start(t0); osc.stop(t0 + 1.5);
+    });
+  }
+
+  // "keys": a warm two-operator electric-piano tone — a sine carrier with a
+  // faint higher sine layered in, softer attack than the pluck/bell voices
+  function playKeys(freq, t0){
+    const osc = ctx.createOscillator(); osc.type = 'sine'; osc.frequency.value = freq;
+    const osc2 = ctx.createOscillator(); osc2.type = 'sine'; osc2.frequency.value = freq*4.02;
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.05, t0);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+    const filt = ctx.createBiquadFilter(); filt.type = 'lowpass'; filt.frequency.value = 2600;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.15, t0 + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.7);
+    osc2.connect(g2); g2.connect(filt);
+    osc.connect(filt); filt.connect(g); g.connect(melodyBus); g.connect(reverbSend);
+    osc.start(t0); osc.stop(t0+1.8);
+    osc2.start(t0); osc2.stop(t0+0.4);
+  }
+
+  function playMelodyNote(scale, t0, song){
     const freq = scale[Math.floor(Math.random()*scale.length)] * (Math.random()<0.5?1:2);
+    const pluck = song.melodyStyle === 'pluck';
     const osc = ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.value = freq;
     const osc2 = ctx.createOscillator();
     osc2.type = 'triangle';
     osc2.frequency.value = freq;
-    osc2.detune.value = 6;
+    osc2.detune.value = pluck ? 4 : 6;
     const filt = ctx.createBiquadFilter();
-    filt.type='lowpass'; filt.frequency.value = 2400;
-    const dur = 1.1 + Math.random()*0.8;
+    filt.type='lowpass'; filt.frequency.value = song.melodyFilter;
+    const dur = pluck ? (0.35 + Math.random()*0.35) : (1.1 + Math.random()*0.8);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(0.16, t0+0.02);
+    g.gain.linearRampToValueAtTime(pluck ? 0.19 : 0.16, t0 + (pluck ? 0.006 : 0.02));
     g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
     osc.connect(filt); osc2.connect(filt); filt.connect(g); g.connect(melodyBus);
     osc.start(t0); osc.stop(t0+dur+0.1);
@@ -1015,25 +1219,43 @@ const Music = (function(){
   function playCrackle(t0){ noiseBurst(t0, 0.02, 0.035, 2000, 6000, master); }
 
   function scheduleBeat(beatNumber, t){
-    const chordLenBeats = BEATS_PER_BAR*BARS_PER_CHORD;
+    const song = currentSong();
+    const s = spb();
+    const chordLenBeats = BEATS_PER_BAR*(song.barsPerChord||BARS_PER_CHORD);
     const beatInBar = beatNumber % BEATS_PER_BAR;
     if(beatNumber % chordLenBeats === 0){
-      chordIdx = (chordIdx+1) % CHORDS.length;
-      playChord(CHORDS[chordIdx], t, SPB*chordLenBeats + 0.3);
+      chordStep++;
+      chordIdx = song.chordOrder ? song.chordOrder[chordStep % song.chordOrder.length] : (chordStep % song.chords.length);
+      playChord(song.chords[chordIdx], t, s*chordLenBeats + 0.3, song);
     }
-    if(beatInBar===0) playKick(t);
-    if(beatInBar===2){ playKick(t); playSnare(t+0.02); }
-    playHat(t, 0.55);
-    playHat(t + SPB*0.5*1.12, 0.3);
-    if(Math.random() < 0.4) playMelodyNote(CHORDS[chordIdx].scale, t + Math.random()*SPB*0.4);
-    if(Math.random() < 0.1) playDrip(t + Math.random()*SPB*2);
-    if(Math.random() < 0.12) playCrackle(t + Math.random()*SPB);
+    if(song.instrument && Math.random() < (song.instrumentChance||0)){
+      const scale = song.chords[chordIdx].scale;
+      const freq = scale[Math.floor(Math.random()*scale.length)];
+      const at = t + Math.random()*s*0.6;
+      if(song.instrument==='bell') playBell(freq*2, at);
+      else if(song.instrument==='keys') playKeys(freq, at);
+    }
+    if(song.drums === 'full'){
+      if(beatInBar===0) playKick(t);
+      if(beatInBar===2){ playKick(t); playSnare(t+0.02); }
+      playHat(t, 0.55);
+      playHat(t + s*0.5*1.12, 0.3);
+    } else if(song.drums === 'light'){
+      playHat(t, 0.35);
+      if(beatInBar===0 && beatNumber % 8 === 0) playKick(t);
+    } else if(song.drums === 'sparse'){
+      if(beatInBar===0) playKick(t);
+    }
+    if(Math.random() < song.melodyChance) playMelodyNote(song.chords[chordIdx].scale, t + Math.random()*s*0.4, song);
+    if(Math.random() < song.dripChance) playDrip(t + Math.random()*s*2);
+    if(Math.random() < song.crackleChance) playCrackle(t + Math.random()*s);
   }
 
   function schedulerLoop(){
+    const s = spb();
     while(nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD){
       scheduleBeat(beatCount, nextNoteTime);
-      nextNoteTime += SPB;
+      nextNoteTime += s;
       beatCount++;
     }
   }
@@ -1051,16 +1273,20 @@ const Music = (function(){
       if(running) return; // already started by another call while waiting
       started = true; running = true;
       nextNoteTime = ctx.currentTime + 0.05;
-      beatCount = 0; chordIdx = -1;
+      beatCount = 0; chordIdx = 0; chordStep = -1;
       try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
+      applyRainTarget();
+      delay.delayTime.value = spb()*0.75;
       schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS);
       master.gain.cancelScheduledValues(ctx.currentTime);
       master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-      master.gain.linearRampToValueAtTime(0.85, ctx.currentTime + 1.2);
+      master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 1.2);
+      armAutoAdvance();
     }).catch(()=>{ starting = false; });
   }
 
   function stop(){
+    clearAutoAdvance();
     if(!running) return;
     running = false;
     if(ctx && master){
@@ -1071,14 +1297,59 @@ const Music = (function(){
     clearInterval(schedulerId);
   }
 
+  function switchSong(idx){
+    const n = SONGS.length;
+    songIndex = ((idx % n) + n) % n;
+    beatCount = 0; chordIdx = 0; chordStep = -1;
+    if(ctx && master){
+      const now = ctx.currentTime;
+      if(running){
+        master.gain.cancelScheduledValues(now);
+        master.gain.setValueAtTime(master.gain.value, now);
+        master.gain.linearRampToValueAtTime(0.0001, now + 0.3);
+        master.gain.linearRampToValueAtTime(effectiveGain(), now + 0.85);
+        nextNoteTime = ctx.currentTime + 0.35;
+      }
+      delay.delayTime.value = spb()*0.75;
+      applyRainTarget();
+    }
+    armAutoAdvance();
+  }
+
+  function next(){ switchSong(songIndex + 1); }
+  function prev(){ switchSong(songIndex - 1); }
+
   return {
-    autoStart(){ if(wantsToPlay && !started) start(); },
-    toggle(){
-      wantsToPlay = !wantsToPlay;
-      if(wantsToPlay) start(); else stop();
-      return wantsToPlay;
+    autoStart(){ if(!muted && !started) start(); },
+    toggleMute(){
+      muted = !muted;
+      if(muted) stop(); else start();
+      return muted;
     },
-    isOn(){ return wantsToPlay; }
+    isOn(){ return !muted; },
+    setVolume(v){
+      volume = Math.max(0, Math.min(1, v));
+      if(ctx && master && running && !muted){
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+        master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 0.05);
+      }
+    },
+    toggleLoop(){
+      loopSong = !loopSong;
+      armAutoAdvance();
+      return loopSong;
+    },
+    next(){ next(); },
+    prev(){ prev(); },
+    selectSong(i){ switchSong(i); },
+    getSongs(){ return SONGS.map(s => ({ name: s.name })); },
+    getState(){
+      return {
+        songIndex, songName: currentSong().name,
+        muted, loop: loopSong, volume
+      };
+    }
   };
 })();
 
@@ -2054,11 +2325,64 @@ owlModeBtn.addEventListener('click', ()=>setMode('owl'));
 xModeBtn.addEventListener('click', ()=>setMode('x'));
 
 const musicToggleBtn = document.getElementById('musicToggle');
-musicToggleBtn.addEventListener('click', ()=>{
+const musicOverlay = document.getElementById('musicOverlay');
+const musicNowName = document.getElementById('musicNowName');
+const musicPrevBtn = document.getElementById('musicPrevBtn');
+const musicNextBtn = document.getElementById('musicNextBtn');
+const musicLoopBtn = document.getElementById('musicLoopBtn');
+const musicMuteBtn = document.getElementById('musicMuteBtn');
+const musicVolume = document.getElementById('musicVolume');
+const musicSongList = document.getElementById('musicSongList');
+const musicCloseBtn = document.getElementById('musicCloseBtn');
+
+const ICON_SKIP_PREV = `<svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="currentColor"><rect x="5" y="5" width="2.6" height="14" rx="0.6"/><polygon points="18,5 18,19 8,12"/></svg>`;
+const ICON_SKIP_NEXT = `<svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="currentColor"><polygon points="6,5 6,19 16,12"/><rect x="16.4" y="5" width="2.6" height="14" rx="0.6"/></svg>`;
+const ICON_REPEAT = `<svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5h13a2.5 2.5 0 0 1 2.5 2.5v2"/><path d="M9 4.5 4 7.5l5 3"/><path d="M20 16.5H7A2.5 2.5 0 0 1 4.5 14v-2"/><path d="M15 19.5l5-3-5-3"/></svg>`;
+musicPrevBtn.innerHTML = ICON_SKIP_PREV;
+musicNextBtn.innerHTML = ICON_SKIP_NEXT;
+musicLoopBtn.innerHTML = ICON_REPEAT;
+
+function renderMusicPanel(){
+  const state = Music.getState();
+  musicNowName.textContent = state.songName;
+  musicMuteBtn.textContent = state.muted ? '🔇' : '🔊';
+  musicMuteBtn.classList.toggle('muted', state.muted);
+  musicMuteBtn.title = state.muted ? 'Unmute music' : 'Mute music';
+  musicMuteBtn.setAttribute('aria-label', state.muted ? 'Unmute music' : 'Mute music');
+  musicLoopBtn.classList.toggle('active', state.loop);
+  musicLoopBtn.title = state.loop ? 'Looping current song' : 'Loop current song';
+  musicVolume.value = Math.round(state.volume*100);
+  musicToggleBtn.textContent = state.muted ? '🔇' : '🔊';
+  musicToggleBtn.classList.toggle('on', !state.muted);
+  musicSongList.innerHTML = Music.getSongs().map((s,i)=>
+    `<button type="button" class="music-song-btn${i===state.songIndex?' playing':''}" data-i="${i}">
+       <span><span class="music-song-num">${String(i+1).padStart(2,'0')}</span>${s.name}</span>
+       ${i===state.songIndex ? '<span class="music-song-note" aria-hidden="true">♪</span>' : ''}
+     </button>`
+  ).join('');
+}
+
+function openMusicPanel(){
   AudioCore.ensure();
-  const isOn = Music.toggle();
-  musicToggleBtn.classList.toggle('on', isOn);
-  musicToggleBtn.textContent = isOn ? '🎵' : '🔇';
+  Music.autoStart();
+  renderMusicPanel();
+  musicOverlay.classList.add('show');
+}
+function closeMusicPanel(){ musicOverlay.classList.remove('show'); }
+
+musicToggleBtn.addEventListener('click', ()=>{ Sound.button(); openMusicPanel(); });
+musicCloseBtn.addEventListener('click', ()=>{ Sound.button(); closeMusicPanel(); });
+musicPrevBtn.addEventListener('click', ()=>{ Sound.button(); Music.prev(); renderMusicPanel(); });
+musicNextBtn.addEventListener('click', ()=>{ Sound.button(); Music.next(); renderMusicPanel(); });
+musicLoopBtn.addEventListener('click', ()=>{ Sound.button(); Music.toggleLoop(); renderMusicPanel(); });
+musicMuteBtn.addEventListener('click', ()=>{ Music.toggleMute(); renderMusicPanel(); });
+musicVolume.addEventListener('input', ()=>{ Music.setVolume(musicVolume.value/100); });
+musicSongList.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.music-song-btn');
+  if(!btn) return;
+  Sound.button();
+  Music.selectSong(parseInt(btn.dataset.i, 10));
+  renderMusicPanel();
 });
 
 /* ---------- tutorial: paginated, illustrated rule pages ---------- */
