@@ -6,10 +6,11 @@
 <title>Owldoku</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1320580594388108"
+     crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1320580594388108" crossorigin="anonymous"></script>
 <style>
   :root{
     --bg: #201a2c;
@@ -24,7 +25,6 @@
     --accent-dim: #715a2b;
     --miss: #e0685a;
     --good: #7fb59e;
-    --ad-reserve: calc(58px + env(safe-area-inset-bottom, 0px));
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:none;}
   html{
@@ -60,7 +60,7 @@
     width:100%;
     height:100%;
     max-width:680px;
-    padding: min(1.5vh, 10px) 8px calc(min(1vh, 8px) + var(--ad-reserve));
+    padding: min(1.5vh, 10px) 8px min(1vh, 8px);
     display:flex;
     flex-direction:column;
     justify-content:flex-start;
@@ -277,6 +277,30 @@
     flex:0 0 auto;
   }
 
+  /* Ad banner: pinned to the bottom of the game page only, never the title
+     screen. Capped to a standard mobile banner size (max 320x50 rendered
+     area) no matter what AdSense's "auto" responsive format tries to do -
+     the slot's own box is a hard ceiling and clips anything larger. */
+  .ad-slot{
+    flex:0 0 auto;
+    width:100%;
+    max-width:320px;
+    height:50px;
+    max-height:50px;
+    margin:min(0.6vh,6px) auto 0;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .ad-slot .adsbygoogle{
+    display:block !important;
+    width:100% !important;
+    height:50px !important;
+    max-height:50px !important;
+    overflow:hidden !important;
+  }
+
   @media (prefers-reduced-motion: reduce){ .eyes span{ animation:none !important; } }
 
   .title-screen{
@@ -299,14 +323,6 @@
     appearance:none;
   }
   .title-screen.hide{ opacity:0; pointer-events:none; }
-  .ad-bar{
-    position:fixed; left:0; right:0; bottom:0; z-index:50;
-    display:flex; align-items:center; justify-content:center;
-    height:var(--ad-reserve); max-height:var(--ad-reserve); overflow:hidden;
-    background:var(--bg);
-    padding:4px 8px calc(4px + env(safe-area-inset-bottom, 0px));
-  }
-  .ad-bar .adsbygoogle{ width:100%; }
   .title-screen .eyes{ margin-bottom:10px; }
   .title-screen .eyes span{ width:11px; height:11px; }
   .title-screen h1{
@@ -432,19 +448,18 @@
   </div>
 
   <footer>owl mode: tap to place or remove an owl<br>mark mode: tap or drag to add or clear ✕ marks</footer>
-</div>
 
-<div class="ad-bar" id="adBar">
-  <ins class="adsbygoogle"
-       style="display:block"
-       data-ad-client="ca-pub-1320580594388108"
-       data-ad-slot="4873437743"
-       data-ad-format="auto"
-       data-full-width-responsive="true"></ins>
+  <div class="ad-slot">
+    <ins class="adsbygoogle"
+         style="display:block"
+         data-ad-client="ca-pub-1320580594388108"
+         data-ad-slot="4873437743"
+         data-ad-format="auto"
+         data-full-width-responsive="true"></ins>
+  </div>
 </div>
 <script>
-  try{ (adsbygoogle = window.adsbygoogle || []).push({}); }
-  catch(e){ console.warn('AdSense failed to load', e); }
+  (adsbygoogle = window.adsbygoogle || []).push({});
 </script>
 
 <div class="overlay" id="winOverlay">
@@ -1155,7 +1170,7 @@ function generatePuzzle(N, difficulty='medium'){
 }
 
 /* ---------- puzzle sharing (encode exact board into a URL-safe code) ---------- */
-const SITE_URL = 'https://rethy11.github.io/Owldoku/';
+const SITE_URL = 'https://www.owldoku.com/';
 
 function b64urlEncode(str){
   return btoa(str).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
