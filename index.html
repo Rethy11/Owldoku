@@ -113,6 +113,7 @@
   }
   .hearts{ letter-spacing:2px; }
   .hearts .lost{ opacity:0.25; filter:grayscale(1); }
+  .statbar .best-val{ color:var(--accent); }
   .selectbar{
     display:flex; gap:8px; margin-bottom:min(0.3vh,3px); flex:0 0 auto;
   }
@@ -204,6 +205,34 @@
   .cell.selected .fill{ box-shadow:inset 0 0 0 2px rgba(244,238,224,0.7); }
   .cell:active .fill{ filter:brightness(1.08); }
 
+  .cell .conflict-x{
+    position:absolute; inset:0; z-index:3;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:none;
+    animation: conflictPop 0.18s ease-out;
+  }
+  .cell .conflict-x svg{ width:56%; height:56%; display:block; }
+  @keyframes conflictPop{ from{ transform:scale(0.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  .cell.conflict-fading .glyph,
+  .cell.conflict-fading .conflict-x{
+    transition: opacity 0.4s ease;
+    opacity: 0;
+  }
+
+  .tip-popup{
+    position:absolute; top:50%; left:50%; z-index:6;
+    transform:translate(-50%,-50%) scale(0.9);
+    background:var(--surface-2); border:1px solid var(--miss); color:var(--ink);
+    padding:10px 18px; border-radius:12px;
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.85rem;
+    text-align:center; max-width:82%;
+    pointer-events:none;
+    opacity:0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    box-shadow:0 12px 30px -10px rgba(0,0,0,0.65);
+  }
+  .tip-popup.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+
   .modebar{ display:flex; gap:8px; margin-top:min(0.3vh,3px); flex:0 0 auto; }
   .mode-btn{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
@@ -252,6 +281,7 @@
   }
   .overlay.show{ display:flex; }
   .card{
+    position:relative; z-index:2;
     background:var(--surface); border:1px solid var(--line-strong); border-radius:18px;
     padding:28px 26px; text-align:center; max-width:320px;
   }
@@ -259,6 +289,37 @@
   .card h2{ font-family:'Fraunces', serif; font-style:italic; margin:0 0 6px; font-size:1.5rem; }
   .card p{ color:var(--ink-dim); font-size:0.86rem; margin:0 0 16px; }
   .card.sad h2{ color:var(--miss); }
+
+  #winOverlay.show .card{ animation: winPop 0.55s cubic-bezier(0.22,1.1,0.32,1.2); }
+  @keyframes winPop{
+    0%{ transform:scale(0.7) rotate(-3deg); opacity:0; }
+    60%{ transform:scale(1.06) rotate(1.5deg); opacity:1; }
+    100%{ transform:scale(1) rotate(0deg); opacity:1; }
+  }
+  .new-best{
+    display:none;
+    color:var(--accent); font-weight:700; font-size:0.82rem;
+    letter-spacing:0.06em; text-transform:uppercase;
+    margin:-10px 0 16px;
+  }
+  .new-best.show{ display:block; animation: newBestPulse 0.9s ease-in-out 1; }
+  @keyframes newBestPulse{ 0%{ transform:scale(0.85); opacity:0; } 50%{ transform:scale(1.12); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
+
+  .confetti-layer{
+    position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1;
+    border-radius:18px;
+  }
+  .confetti-piece{
+    position:absolute; top:-12px; width:8px; height:14px; opacity:0.95;
+    border-radius:2px;
+    animation-name: confettiFall;
+    animation-timing-function: cubic-bezier(0.35,0,0.65,1);
+    animation-fill-mode: forwards;
+  }
+  @keyframes confettiFall{
+    0%{ transform:translateY(0) translateX(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(105vh) translateX(var(--drift,0px)) rotate(var(--rotate,180deg)); opacity:0.1; }
+  }
 
   footer{
     text-align:center; color:var(--ink-dim); font-size:0.58rem;
@@ -400,6 +461,7 @@
 
   <div class="statbar">
     <span>Time <span class="val" id="timer">00:00</span></span>
+    <span>Best <span class="val best-val" id="bestTime">--:--</span></span>
     <span class="hearts" id="hearts"></span>
   </div>
 
@@ -426,6 +488,7 @@
     <div class="board-box" id="boardBox">
       <div class="grid" id="grid"></div>
     </div>
+    <div class="tip-popup" id="tipPopup"></div>
   </div>
 
   <div class="modebar">
@@ -450,10 +513,12 @@
 </div>
 
 <div class="overlay" id="winOverlay">
+  <div class="confetti-layer" id="confettiLayer"></div>
   <div class="card">
     <div class="paw" id="winOwlIcon"></div>
     <h2>Every owl is home</h2>
     <p id="winStats">Solved in 00:00.</p>
+    <div class="new-best" id="newBestBadge">New Best!</div>
     <div style="display:flex; gap:8px;">
       <button class="btn" id="shareWinBtn" style="width:100%;">Share puzzle</button>
       <button class="btn primary" id="playAgainBtn" style="width:100%;">Play again</button>
@@ -698,6 +763,7 @@ const Sound = (function(){
     },
     win(){
       chord([392.00, 493.88, 587.33, 783.99], {dur:0.5, gain:0.18, stagger:0.11, filterFreq:3500});
+      setTimeout(()=> chord([659.25, 783.99, 987.77, 1174.66], {dur:0.45, gain:0.14, stagger:0.06, filterFreq:4200}), 460);
     },
     lose(){
       chord([220.00, 196.00, 164.81], {dur:0.5, gain:0.18, stagger:0.14, filterFreq:900, type:'triangle'});
@@ -1313,8 +1379,52 @@ let dragging = false;
 let dragAction = null; // 'add' | 'remove'
 let hintUsed = false;
 let currentPuzzleCode = '';
+let currentDifficulty = 'easy';
+let conflictCell = null;     // {r,c} of the owl currently showing conflict feedback
+let conflictTimeoutA = null; // timer: start the fade
+let conflictTimeoutB = null; // timer: remove the owl / clear feedback
 
 function boardEl(){ return document.getElementById('grid'); }
+
+/* ---------- best-time tracking (per size + difficulty), via localStorage ---------- */
+const BEST_TIMES_KEY = 'owldoku_best_times';
+
+function difficultyKey(n, diff){ return `${n}x${n}-${diff}`; }
+
+function loadBestTimes(){
+  try{
+    return JSON.parse(localStorage.getItem(BEST_TIMES_KEY)) || {};
+  }catch(e){ return {}; }
+}
+
+function saveBestTimes(times){
+  try{ localStorage.setItem(BEST_TIMES_KEY, JSON.stringify(times)); }catch(e){ /* storage unavailable — ignore */ }
+}
+
+function getBestTime(n, diff){
+  const times = loadBestTimes();
+  const v = times[difficultyKey(n, diff)];
+  return typeof v === 'number' ? v : null;
+}
+
+// Returns true if this run set a new best.
+function maybeSaveBestTime(n, diff, secs){
+  const times = loadBestTimes();
+  const key = difficultyKey(n, diff);
+  const prev = times[key];
+  if(prev == null || secs < prev){
+    times[key] = secs;
+    saveBestTimes(times);
+    return true;
+  }
+  return false;
+}
+
+function updateBestTimeDisplay(){
+  const best = getBestTime(N, currentDifficulty);
+  const el = document.getElementById('bestTime');
+  if(el) el.textContent = best != null ? formatTime(best) : '--:--';
+}
 
 /* ---------- keep the visible board box a square that hugs the grid, ---------- */
 /* rather than stretching to fill the whole rectangular wrapper           */
@@ -1398,6 +1508,60 @@ function owlConflicts(r,c, owls){
   return conflicts;
 }
 
+function conflictMessage(r, c, conflicts){
+  let touch=false, col=false, row=false, region=false;
+  for(const [or,oc] of conflicts){
+    if(Math.abs(or-r)<=1 && Math.abs(oc-c)<=1) touch = true;
+    if(oc===c) col = true;
+    if(or===r) row = true;
+    if(regionOf[or][oc]===regionOf[r][c]) region = true;
+  }
+  if(touch) return "Owls can't touch!";
+  if(col) return "Owls can't share a column!";
+  if(row) return "Owls can't share a row!";
+  if(region) return "Owls can't share a color!";
+  return "Owls can't do that!";
+}
+
+function showTip(msg){
+  const tip = document.getElementById('tipPopup');
+  if(!tip) return;
+  tip.textContent = msg;
+  // force reflow so re-adding 'show' after a quick repeat retriggers the transition
+  void tip.offsetWidth;
+  tip.classList.add('show');
+}
+
+function hideTip(){
+  const tip = document.getElementById('tipPopup');
+  if(tip) tip.classList.remove('show');
+}
+
+function clearConflictTimers(){
+  if(conflictTimeoutA){ clearTimeout(conflictTimeoutA); conflictTimeoutA = null; }
+  if(conflictTimeoutB){ clearTimeout(conflictTimeoutB); conflictTimeoutB = null; }
+}
+
+function showConflictFeedback(r, c, conflicts){
+  clearConflictTimers();
+  conflictCell = {r, c};
+  showTip(conflictMessage(r, c, conflicts));
+  render();
+  conflictTimeoutA = setTimeout(()=>{
+    if(conflictCell && conflictCell.r===r && conflictCell.c===c){
+      document.querySelector(`.cell[data-r="${r}"][data-c="${c}"]`)?.classList.add('conflict-fading');
+    }
+    hideTip();
+    conflictTimeoutB = setTimeout(()=>{
+      if(mark[r][c]==='owl') mark[r][c] = 'empty';
+      const wasFatal = hearts===0;
+      conflictCell = null;
+      render();
+      if(wasFatal) endGame(false);
+    }, 420);
+  }, 900);
+}
+
 function toggleOwl(r,c){
   if(given[r][c]){ selectedCell={r,c}; render(); return; }
   selectedCell = {r,c};
@@ -1412,11 +1576,9 @@ function toggleOwl(r,c){
       Sound.conflict();
       hearts = Math.max(0, hearts-1);
       Sound.heartLost();
-      if(hearts===0){
-        render();
-        endGame(false);
-        return;
-      }
+      showConflictFeedback(r,c,conflicts);
+      render();
+      return;
     } else {
       Sound.owlPlace();
     }
@@ -1440,7 +1602,7 @@ function cellFromPoint(x,y){
 }
 
 function onGridPointerDown(e){
-  if(gameOver || solved) return;
+  if(gameOver || solved || conflictCell) return;
   const cellEl = e.target.closest('.cell');
   if(!cellEl) return;
   e.preventDefault();
@@ -1492,6 +1654,9 @@ function render(){
       } else if(mark[r][c]==='x'){
         inner = xSvg();
       }
+      const isConflictCell = conflictCell && conflictCell.r===r && conflictCell.c===c;
+      if(isConflictCell) inner += conflictXSvg();
+      cell.classList.toggle('conflict-fading', false);
       const fill = cell.querySelector('.fill');
       cell.innerHTML = '';
       cell.appendChild(fill);
@@ -1499,6 +1664,10 @@ function render(){
     }
   }
   document.getElementById('hearts').innerHTML = heartsHTML();
+}
+
+function conflictXSvg(){
+  return `<div class="conflict-x"><svg viewBox="0 0 24 24" fill="none" stroke="var(--miss)" stroke-width="4" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></div>`;
 }
 
 function xSvg(){
@@ -1522,8 +1691,33 @@ function checkWin(){
   solved = true;
   clearInterval(timerInterval);
   Sound.win();
+  const isNewBest = maybeSaveBestTime(N, currentDifficulty, seconds);
+  updateBestTimeDisplay();
   document.getElementById('winStats').textContent = `Solved in ${formatTime(seconds)} with ${hearts} heart${hearts===1?'':'s'} left.`;
+  document.getElementById('newBestBadge').classList.toggle('show', isNewBest);
   document.getElementById('winOverlay').classList.add('show');
+  launchConfetti();
+}
+
+function launchConfetti(){
+  const layer = document.getElementById('confettiLayer');
+  if(!layer) return;
+  layer.innerHTML = '';
+  const colors = ['#e8a33d','#7fb59e','#e0685a','#f4eee0','#b7aecb'];
+  const count = 30;
+  for(let i=0;i<count;i++){
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = (Math.random()*100) + '%';
+    piece.style.background = colors[Math.floor(Math.random()*colors.length)];
+    piece.style.animationDelay = (Math.random()*0.35) + 's';
+    piece.style.animationDuration = (1.3 + Math.random()*0.9) + 's';
+    piece.style.setProperty('--rotate', Math.floor(Math.random()*360) + 'deg');
+    piece.style.setProperty('--drift', Math.floor((Math.random()*2-1)*70) + 'px');
+    if(Math.random() < 0.4) piece.style.borderRadius = '50%';
+    layer.appendChild(piece);
+  }
+  setTimeout(()=>{ layer.innerHTML = ''; }, 2600);
 }
 
 function endGame(won){
@@ -1552,6 +1746,9 @@ function startTimer(){
 }
 
 function resetMarksOnly(){
+  clearConflictTimers();
+  conflictCell = null;
+  hideTip();
   for(let r=0;r<N;r++) for(let c=0;c<N;c++){
     if(!given[r][c]) mark[r][c]='empty';
   }
@@ -1592,6 +1789,9 @@ function hint(){
 }
 
 function startPuzzle(result){
+  clearConflictTimers();
+  conflictCell = null;
+  hideTip();
   N = result.N;
   regionOf = result.regionOf;
   solutionPerm = result.perm;
@@ -1609,8 +1809,11 @@ function startPuzzle(result){
   selectedCell = null;
   hintUsed = false;
   updateHintButton();
+  currentDifficulty = document.getElementById('difficultySelect').value;
+  updateBestTimeDisplay();
   document.getElementById('winOverlay').classList.remove('show');
   document.getElementById('loseOverlay').classList.remove('show');
+  document.getElementById('newBestBadge').classList.remove('show');
   currentPuzzleCode = packPuzzle(N, regionOf, result.clues, solutionPerm);
   try{
     const url = new URL(location.href);
