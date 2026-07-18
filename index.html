@@ -83,6 +83,15 @@
     transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
   }
   .music-toggle.on{ border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+  .help-btn{
+    position:absolute; top:0; left:0;
+    width:28px; height:28px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk', sans-serif; font-weight:700; font-size:0.9rem; cursor:pointer;
+    transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  }
+  .help-btn:hover{ border-color:var(--line-strong); color:var(--ink); }
   .eyes{ display:flex; justify-content:center; gap:8px; margin-bottom:2px; }
   .eyes span{
     width:7px;height:7px;border-radius:50%;
@@ -289,6 +298,32 @@
   .card h2{ font-family:'Fraunces', serif; font-style:italic; margin:0 0 6px; font-size:1.5rem; }
   .card p{ color:var(--ink-dim); font-size:0.86rem; margin:0 0 16px; }
   .card.sad h2{ color:var(--miss); }
+  .tutorial-card{ max-width:320px; }
+  .tut-owl-ic{ width:56px; height:56px; margin:0 auto 6px; }
+  .tut-owl-ic svg{ width:100%; height:100%; display:block; }
+  .tutorial-card h2{ font-size:1.25rem; }
+  .tut-board-box{
+    width:150px; height:150px; margin:6px auto 14px;
+    background:var(--bg-deep); border:1px solid var(--line); border-radius:14px;
+    padding:7px; display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 24px -14px rgba(0,0,0,0.6);
+  }
+  .tut-grid{
+    display:grid; gap:2px; width:100%; height:100%;
+    background:var(--bg-deep); border-radius:8px; overflow:hidden; aspect-ratio:1;
+  }
+  .tut-hearts{ margin:-6px 0 14px; font-size:0.95rem; color:var(--miss); letter-spacing:3px; }
+  .tut-hearts .lost{ opacity:0.25; filter:grayscale(1); }
+  .tutorial-card p{ min-height:58px; display:flex; align-items:center; justify-content:center; }
+  .tut-dots{ display:flex; justify-content:center; gap:6px; margin:-4px 0 16px; }
+  .tut-dots .dot{
+    width:7px; height:7px; border-radius:50%; background:var(--line);
+    cursor:pointer; border:none; padding:0;
+    transition:background 0.15s ease, transform 0.15s ease;
+  }
+  .tut-dots .dot.active{ background:var(--accent); transform:scale(1.3); }
+  .tut-nav{ display:flex; gap:8px; }
+  .tut-nav .btn.ghost{ visibility:hidden; }
 
   #winOverlay.show .card{ animation: winPop 0.55s cubic-bezier(0.22,1.1,0.32,1.2); }
   @keyframes winPop{
@@ -453,6 +488,7 @@
 
 <div class="wrap" id="gameWrap">
   <header>
+    <button class="help-btn" id="helpBtn" aria-label="How to play" title="How to play">?</button>
     <button class="music-toggle on" id="musicToggle" aria-label="Toggle background music" title="Midnight rain lofi music">🎵</button>
     <div class="eyes"><span></span><span></span></div>
     <h1>Owldoku</h1>
@@ -509,6 +545,21 @@
          style="display:inline-block;width:728px;height:90px"
          data-ad-client="ca-pub-1320580594388108"
          data-ad-slot="4873437743"></ins>
+  </div>
+</div>
+
+<div class="overlay" id="tutorialOverlay">
+  <div class="card tutorial-card">
+    <div class="tut-owl-ic" id="tutOwlIcon"></div>
+    <h2 id="tutTitle"></h2>
+    <div class="tut-board-box" id="tutBoardBox"></div>
+    <div class="tut-hearts" id="tutHearts" style="display:none;"></div>
+    <p id="tutText"></p>
+    <div class="tut-dots" id="tutDots"></div>
+    <div class="tut-nav">
+      <button class="btn ghost" id="tutPrevBtn">Back</button>
+      <button class="btn primary" id="tutNextBtn">Next</button>
+    </div>
   </div>
 </div>
 
@@ -1392,6 +1443,16 @@ let conflictTimeoutB = null; // timer: remove the owl / clear feedback
 
 function boardEl(){ return document.getElementById('grid'); }
 
+/* ---------- tutorial (first-run help), via localStorage ---------- */
+const TUTORIAL_SEEN_KEY = 'owldoku_tutorial_seen';
+
+function hasTutorialBeenSeen(){
+  try{ return localStorage.getItem(TUTORIAL_SEEN_KEY) === '1'; }catch(e){ return true; }
+}
+function markTutorialSeen(){
+  try{ localStorage.setItem(TUTORIAL_SEEN_KEY, '1'); }catch(e){ /* storage unavailable — ignore */ }
+}
+
 /* ---------- best-time tracking (per size + difficulty), via localStorage ---------- */
 const BEST_TIMES_KEY = 'owldoku_best_times';
 
@@ -2000,6 +2061,135 @@ musicToggleBtn.addEventListener('click', ()=>{
   musicToggleBtn.textContent = isOn ? '🎵' : '🔇';
 });
 
+/* ---------- tutorial: paginated, illustrated rule pages ---------- */
+const XMARK_SVG_MINI = `<svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
+
+// shared 5x5 region layout used to illustrate every tutorial page
+const TUT_REGIONS = [
+  [0,0,1,1,2],
+  [0,0,1,2,2],
+  [0,3,3,2,2],
+  [3,3,3,4,4],
+  [3,4,4,4,4]
+];
+
+function tutBoardHTML(spec){
+  const n = 5;
+  const colors = regionColors(n);
+  const owls = spec.owls || [];
+  const xs = spec.xs || [];
+  const errors = spec.errors || [];
+  const selected = spec.selected || null;
+  let html = `<div class="tut-grid" style="grid-template-columns:repeat(${n},1fr); grid-template-rows:repeat(${n},1fr);">`;
+  for(let r=0;r<n;r++){
+    for(let c=0;c<n;c++){
+      const isOwl = owls.some(([or,oc])=>or===r&&oc===c);
+      const isX = xs.some(([or,oc])=>or===r&&oc===c);
+      const isError = errors.some(([or,oc])=>or===r&&oc===c);
+      const isSelected = selected && selected[0]===r && selected[1]===c;
+      let cls = 'cell';
+      if(isError) cls += ' error';
+      if(isSelected) cls += ' selected';
+      html += `<div class="${cls}"><div class="fill" style="background:${colors[TUT_REGIONS[r][c]]}"></div>`;
+      if(isOwl) html += `<div class="glyph">${OWL_SVG}</div>`;
+      if(isX) html += `<div class="xmark">${XMARK_SVG_MINI}</div>`;
+      html += `</div>`;
+    }
+  }
+  html += `</div>`;
+  return html;
+}
+
+const TUTORIAL_PAGES = [
+  {
+    title: 'One owl per row, column & color',
+    text: 'Each colored territory, each row, and each column must end up with exactly one owl.',
+    board: { owls: [[0,0],[1,2],[2,4],[3,1],[4,3]] }
+  },
+  {
+    title: "Owls can't touch",
+    text: 'Not even diagonally — leave at least one empty cell between any two owls.',
+    board: { owls: [[1,1],[2,2]], errors: [[1,1],[2,2]] }
+  },
+  {
+    title: 'Mark X to track empty cells',
+    text: "Switch to Mark X mode and tap or drag to cross out spots you know are empty. It's just a note to yourself.",
+    board: { owls: [[2,2]], xs: [[0,2],[1,2],[3,2],[4,2],[2,0],[2,1],[2,3],[2,4]] }
+  },
+  {
+    title: 'Switch back to place an owl',
+    text: 'In Place owls mode, tap a cell to place an owl there — tap again to remove it.',
+    board: { owls: [[2,2]], selected: [2,2] }
+  },
+  {
+    title: 'Three hearts',
+    text: 'A wrong owl placement costs a heart. Lose all three and it\u2019s game over.',
+    board: { owls: [[1,1],[1,3]], errors: [[1,1],[1,3]] },
+    hearts: 2,
+    icon: 'sad'
+  }
+];
+
+const tutorialOverlay = document.getElementById('tutorialOverlay');
+const helpBtn = document.getElementById('helpBtn');
+const tutBoardBox = document.getElementById('tutBoardBox');
+const tutHearts = document.getElementById('tutHearts');
+const tutTitle = document.getElementById('tutTitle');
+const tutText = document.getElementById('tutText');
+const tutDots = document.getElementById('tutDots');
+const tutPrevBtn = document.getElementById('tutPrevBtn');
+const tutNextBtn = document.getElementById('tutNextBtn');
+document.getElementById('tutOwlIcon').innerHTML = OWL_SVG;
+
+let tutPage = 0;
+
+function renderTutorialPage(){
+  const page = TUTORIAL_PAGES[tutPage];
+  tutTitle.textContent = page.title;
+  tutText.textContent = page.text;
+  tutBoardBox.innerHTML = tutBoardHTML(page.board);
+  document.getElementById('tutOwlIcon').innerHTML = page.icon === 'sad' ? OWL_SAD_SVG : OWL_SVG;
+  if(typeof page.hearts === 'number'){
+    let h = '';
+    for(let i=0;i<3;i++) h += i < page.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
+    tutHearts.innerHTML = h;
+    tutHearts.style.display = '';
+  } else {
+    tutHearts.style.display = 'none';
+  }
+  tutDots.innerHTML = TUTORIAL_PAGES.map((_,i)=>
+    `<button type="button" class="dot${i===tutPage?' active':''}" data-i="${i}" aria-label="Go to page ${i+1}"></button>`
+  ).join('');
+  tutPrevBtn.classList.toggle('ghost', tutPage===0);
+  tutNextBtn.textContent = tutPage === TUTORIAL_PAGES.length-1 ? 'Got it' : 'Next';
+}
+
+function goTutorialPage(i){
+  tutPage = Math.max(0, Math.min(TUTORIAL_PAGES.length-1, i));
+  renderTutorialPage();
+}
+
+function showTutorial(){ tutPage = 0; renderTutorialPage(); tutorialOverlay.classList.add('show'); }
+function hideTutorial(){ tutorialOverlay.classList.remove('show'); markTutorialSeen(); }
+
+helpBtn.addEventListener('click', ()=>{ Sound.button(); showTutorial(); });
+tutDots.addEventListener('click', (e)=>{
+  const dot = e.target.closest('.dot');
+  if(!dot) return;
+  Sound.button();
+  goTutorialPage(parseInt(dot.dataset.i, 10));
+});
+tutPrevBtn.addEventListener('click', ()=>{
+  if(tutPage===0) return;
+  Sound.button();
+  goTutorialPage(tutPage-1);
+});
+tutNextBtn.addEventListener('click', ()=>{
+  Sound.button();
+  if(tutPage === TUTORIAL_PAGES.length-1){ hideTutorial(); }
+  else { goTutorialPage(tutPage+1); }
+});
+
 const titleScreen = document.getElementById('titleScreen');
 const gameWrap = document.getElementById('gameWrap');
 function dismissTitleScreen(){
@@ -2007,7 +2197,11 @@ function dismissTitleScreen(){
   Music.autoStart();
   titleScreen.classList.add('hide');
   gameWrap.classList.add('revealed');
-  titleScreen.addEventListener('transitionend', ()=>{ titleScreen.style.display = 'none'; sizeBoard(); }, { once:true });
+  titleScreen.addEventListener('transitionend', ()=>{
+    titleScreen.style.display = 'none';
+    sizeBoard();
+    if(!hasTutorialBeenSeen()) showTutorial();
+  }, { once:true });
 }
 titleScreen.addEventListener('click', dismissTitleScreen, { once:true });
 
