@@ -73,7 +73,7 @@
     opacity:1;
     transition:opacity 0.5s ease;
   }
-  header{ text-align:center; margin-bottom:min(0.6vh, 6px); flex:0 0 auto; position:relative; }
+  header{ text-align:center; margin-bottom:min(0.3vh, 3px); flex:0 0 auto; position:relative; }
   .music-toggle{
     position:absolute; top:0; right:0;
     width:28px; height:28px; border-radius:50%;
@@ -100,20 +100,9 @@
     color:var(--ink-dim); font-size:0.8rem; letter-spacing:0.07em;
     text-transform:uppercase; margin-top:2px;
   }
-  .rules{
-    text-align:center;
-    color:var(--ink-dim);
-    font-size:0.82rem;
-    line-height:1.3;
-    margin:min(0.8vh,7px) auto;
-    max-width:380px;
-    flex:0 0 auto;
-  }
-  .rules b{color:var(--ink); font-weight:600;}
-
   .statbar{
     display:flex; justify-content:space-between; align-items:center;
-    margin-bottom:min(0.6vh,6px); padding:6px 12px;
+    margin-bottom:min(0.3vh,3px); padding:5px 12px;
     background:var(--surface); border:1px solid var(--line); border-radius:14px;
     font-size:0.76rem; color:var(--ink-dim);
     flex:0 0 auto;
@@ -125,7 +114,7 @@
   .hearts{ letter-spacing:2px; }
   .hearts .lost{ opacity:0.25; filter:grayscale(1); }
   .selectbar{
-    display:flex; gap:8px; margin-bottom:min(0.6vh,6px); flex:0 0 auto;
+    display:flex; gap:8px; margin-bottom:min(0.3vh,3px); flex:0 0 auto;
   }
   .selectbar .field{
     flex:1; display:flex; flex-direction:column; gap:2px;
@@ -215,7 +204,7 @@
   .cell.selected .fill{ box-shadow:inset 0 0 0 2px rgba(244,238,224,0.7); }
   .cell:active .fill{ filter:brightness(1.08); }
 
-  .modebar{ display:flex; gap:8px; margin-top:min(0.6vh,6px); flex:0 0 auto; }
+  .modebar{ display:flex; gap:8px; margin-top:min(0.3vh,3px); flex:0 0 auto; }
   .mode-btn{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
     background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
@@ -228,7 +217,7 @@
     border-color:var(--accent); background:var(--accent-dim); color:var(--ink);
   }
 
-  .toolbar{ display:flex; gap:8px; margin-top:min(0.5vh,5px); flex:0 0 auto; }
+  .toolbar{ display:flex; gap:8px; margin-top:min(0.3vh,3px); flex:0 0 auto; }
   .btn{
     flex:1; background:var(--surface); border:1px solid var(--line); color:var(--ink);
     font-family:'Space Grotesk', sans-serif; font-weight:500; font-size:0.74rem;
@@ -272,8 +261,8 @@
   .card.sad h2{ color:var(--miss); }
 
   footer{
-    text-align:center; color:var(--ink-dim); font-size:0.6rem;
-    margin-top:min(0.7vh,6px); letter-spacing:0.02em; line-height:1.35;
+    text-align:center; color:var(--ink-dim); font-size:0.58rem;
+    margin-top:min(0.3vh,3px); letter-spacing:0.02em; line-height:1.2;
     flex:0 0 auto;
   }
 
@@ -282,7 +271,7 @@
     display:flex;
     align-items:center;
     justify-content:center;
-    margin-top:min(0.6vh,6px);
+    margin-top:min(0.3vh,3px);
     width:100%;
     max-width:728px;
     height:90px;
@@ -328,6 +317,15 @@
     color:var(--ink-dim); font-size:0.82rem; letter-spacing:0.07em;
     text-transform:uppercase; margin-top:6px;
   }
+  .title-rules{
+    text-align:center;
+    color:var(--ink-dim);
+    font-size:0.85rem;
+    line-height:1.35;
+    margin:14px auto 0;
+    max-width:340px;
+  }
+  .title-rules b{color:var(--ink); font-weight:600;}
   .title-screen .tap-prompt{
     margin-top:min(8vh, 56px);
     color:var(--accent);
@@ -385,6 +383,10 @@
   <div class="eyes"><span></span><span></span></div>
   <h1>Owldoku</h1>
   <div class="tag">one owl per territory</div>
+  <p class="title-rules">
+    Place exactly <b>one owl</b> in every row, every column, and every colored territory.
+    Owls may never touch &mdash; not even diagonally.
+  </p>
   <div class="tap-prompt">tap to play</div>
 </button>
 
@@ -395,11 +397,6 @@
     <h1>Owldoku</h1>
     <div class="tag">one owl per territory</div>
   </header>
-
-  <p class="rules">
-    Place exactly <b>one owl</b> in every row, every column, and every colored territory.
-    Owls may never touch &mdash; not even diagonally.
-  </p>
 
   <div class="statbar">
     <span>Time <span class="val" id="timer">00:00</span></span>
@@ -442,7 +439,7 @@
     <button class="btn primary" id="newBtn">New puzzle</button>
   </div>
 
-  <footer>owl mode: tap to place or remove an owl<br>mark mode: tap or drag to add or clear ✕ marks</footer>
+  <footer>owl mode: tap to place/remove &bull; mark mode: tap/drag to mark ✕</footer>
 
   <div class="ad-banner">
     <ins class="adsbygoogle"
