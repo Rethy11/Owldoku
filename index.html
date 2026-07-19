@@ -287,12 +287,13 @@
 
   .overlay{
     position:fixed; inset:0; background:rgba(23,19,31,0.86);
-    display:none; align-items:center; justify-content:center; z-index:10; padding:20px;
+    display:flex; align-items:center; justify-content:center; z-index:10; padding:20px;
     touch-action:none;
+    visibility:hidden; opacity:0;
+    transition:opacity 0.5s ease;
   }
-  .overlay.show{ display:flex; }
-  .overlay.tut-top{ align-items:flex-start; }
-  .overlay.tut-bottom{ align-items:flex-end; }
+  .overlay.show{ visibility:visible; opacity:1; }
+  .tutorial-card{ transition:transform 0.15s ease; }
   .mode-btn.tut-glow{
     position:relative; z-index:11;
     border-color:var(--accent);
@@ -621,7 +622,7 @@
 </div>
 
 <div class="overlay" id="tutorialOverlay">
-  <div class="card tutorial-card">
+  <div class="card tutorial-card" id="tutorialCard">
     <button type="button" class="tut-close-btn" id="tutCloseBtn" aria-label="Close tutorial">✕</button>
     <div class="tut-owl-ic" id="tutOwlIcon"></div>
     <h2 id="tutTitle"></h2>
@@ -2761,6 +2762,7 @@ const TUTORIAL_PAGES = [
 ];
 
 const tutorialOverlay = document.getElementById('tutorialOverlay');
+const tutorialCard = document.getElementById('tutorialCard');
 const helpBtn = document.getElementById('helpBtn');
 const tutBoardBox = document.getElementById('tutBoardBox');
 const tutHearts = document.getElementById('tutHearts');
@@ -2799,19 +2801,38 @@ function renderTutorialPage(){
   positionTutorialOverlay(highlightBtn);
 }
 
-// Moves the tutorial card up or down so it never sits on top of the real
-// button it's currently spotlighting — measured live, since the modebar's
-// on-screen position can shift with viewport size/orientation.
+// Nudges the tutorial card by the smallest amount needed to clear whichever
+// real button it's currently spotlighting — measured live, since the
+// modebar's on-screen position can shift with viewport size/orientation.
+// tutCardOffset tracks the translateY we last applied, so on every call we
+// can back out the card's true, un-nudged position algebraically instead of
+// resetting the transform on the live element first (which used to cause a
+// visible snap-back-then-re-nudge when moving between two highlighted pages).
+let tutCardOffset = 0;
 function positionTutorialOverlay(highlightBtn){
-  tutorialOverlay.classList.remove('tut-top', 'tut-bottom');
-  if(!highlightBtn) return;
-  const btnRect = highlightBtn.getBoundingClientRect();
-  const btnMid = btnRect.top + btnRect.height/2;
-  if(btnMid > window.innerHeight/2){
-    tutorialOverlay.classList.add('tut-top');
-  } else {
-    tutorialOverlay.classList.add('tut-bottom');
+  const margin = 14;
+  const edgePad = 12;
+  const rect = tutorialCard.getBoundingClientRect();
+  const naturalTop = rect.top - tutCardOffset;
+  const naturalBottom = rect.bottom - tutCardOffset;
+  let offset = 0;
+  if(highlightBtn){
+    const btnRect = highlightBtn.getBoundingClientRect();
+    const overlaps = naturalBottom + margin > btnRect.top && naturalTop - margin < btnRect.bottom;
+    if(overlaps){
+      const naturalMid = naturalTop + (naturalBottom - naturalTop)/2;
+      const btnMid = btnRect.top + btnRect.height/2;
+      offset = naturalMid <= btnMid
+        ? -((naturalBottom + margin) - btnRect.top)   // card is above the button — nudge up just enough
+        : (btnRect.bottom + margin) - naturalTop;       // card is below the button — nudge down just enough
+      const newTop = naturalTop + offset;
+      const newBottom = naturalBottom + offset;
+      if(newTop < edgePad) offset += (edgePad - newTop);
+      if(newBottom > window.innerHeight - edgePad) offset -= (newBottom - (window.innerHeight - edgePad));
+    }
   }
+  tutCardOffset = offset;
+  tutorialCard.style.transform = offset ? `translateY(${offset}px)` : '';
 }
 
 function goTutorialPage(i){
@@ -2819,9 +2840,11 @@ function goTutorialPage(i){
   renderTutorialPage();
 }
 
-function showTutorial(){ tutPage = 0; renderTutorialPage(); tutorialOverlay.classList.add('show'); }
+function showTutorial(){ tutPage = 0; tutorialOverlay.classList.add('show'); renderTutorialPage(); }
 function hideTutorial(){
   tutorialOverlay.classList.remove('show');
+  tutorialCard.style.transform = '';
+  tutCardOffset = 0;
   xModeBtn.classList.remove('tut-glow');
   owlModeBtn.classList.remove('tut-glow');
   markTutorialSeen();
@@ -2851,12 +2874,12 @@ const gameWrap = document.getElementById('gameWrap');
 function dismissTitleScreen(){
   AudioCore.ensure();
   Music.autoStart();
+  sizeBoard();
+  if(!hasTutorialBeenSeen()) showTutorial();
   titleScreen.classList.add('hide');
   gameWrap.classList.add('revealed');
   titleScreen.addEventListener('transitionend', ()=>{
     titleScreen.style.display = 'none';
-    sizeBoard();
-    if(!hasTutorialBeenSeen()) showTutorial();
   }, { once:true });
 }
 titleScreen.addEventListener('click', dismissTitleScreen, { once:true });
