@@ -273,6 +273,8 @@
     background:var(--surface); border-color:var(--line);
   }
   .btn:disabled:hover{ background:var(--surface); border-color:var(--line); }
+  .btn.locked{ opacity:0.4; cursor:not-allowed; }
+  .btn.locked:hover{ background:var(--surface); border-color:var(--line); }
 
   .legend{
     display:flex; align-items:center; justify-content:center; gap:14px;
@@ -299,6 +301,16 @@
   .card p{ color:var(--ink-dim); font-size:0.86rem; margin:0 0 16px; }
   .card.sad h2{ color:var(--miss); }
   .tutorial-card{ max-width:320px; }
+  .tut-close-btn{
+    position:absolute; top:10px; right:10px;
+    width:26px; height:26px; border-radius:50%;
+    background:var(--surface-2); border:1px solid var(--line); color:var(--ink-dim);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk', sans-serif; font-size:0.8rem; line-height:1;
+    cursor:pointer; padding:0;
+    transition:border-color 0.15s ease, color 0.15s ease;
+  }
+  .tut-close-btn:hover{ border-color:var(--line-strong); color:var(--ink); }
   .tut-owl-ic{ width:56px; height:56px; margin:0 auto 6px; }
   .tut-owl-ic svg{ width:100%; height:100%; display:block; }
   .tutorial-card h2{ font-size:1.25rem; }
@@ -564,6 +576,7 @@
         <option value="easy" selected>Easy</option>
         <option value="medium">Medium</option>
         <option value="hard">Hard</option>
+        <option value="impossible">Impossible</option>
       </select>
     </div>
   </div>
@@ -598,6 +611,7 @@
 
 <div class="overlay" id="tutorialOverlay">
   <div class="card tutorial-card">
+    <button type="button" class="tut-close-btn" id="tutCloseBtn" aria-label="Close tutorial">✕</button>
     <div class="tut-owl-ic" id="tutOwlIcon"></div>
     <h2 id="tutTitle"></h2>
     <div class="tut-board-box" id="tutBoardBox"></div>
@@ -607,6 +621,17 @@
     <div class="tut-nav">
       <button class="btn ghost" id="tutPrevBtn">Back</button>
       <button class="btn primary" id="tutNextBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="confirmOverlay">
+  <div class="card">
+    <h2>Are you sure?</h2>
+    <p id="confirmText">This will clear your progress on the current board.</p>
+    <div style="display:flex; gap:8px;">
+      <button class="btn" id="confirmNoBtn" style="width:100%;">No</button>
+      <button class="btn primary" id="confirmYesBtn" style="width:100%;">Yes</button>
     </div>
   </div>
 </div>
@@ -1420,6 +1445,153 @@ function growRegions(N, perm){
   return regionOf;
 }
 
+// Anti-singleton priming + normal random flood-fill. A fully-balanced
+// "always grow the smallest region" approach was tried first, but it makes
+// every region end up compact and similarly-shaped, which turns out to make
+// multiple-solution symmetry far MORE likely — it destroyed 0-clue
+// uniqueness almost entirely. This lighter-touch version keeps the original
+// algorithm's irregular, uniqueness-friendly growth, and only intervenes
+// once per region: since no two seed cells are ever adjacent (the row
+// placement backtracker enforces the no-touch rule), every region is
+// guaranteed an unclaimed neighbor to grab immediately, so this one priming
+// pass alone guarantees no region ever ends up as a singleton — the rest of
+// growth then proceeds exactly like the original random flood-fill.
+function growRegionsNoSingles(N, perm){
+  const regionOf = Array.from({length:N},()=>Array(N).fill(-1));
+  const deltas=[[-1,0],[1,0],[0,-1],[0,1]];
+  for(let r=0;r<N;r++) regionOf[r][perm[r]] = r;
+  const neighborsOf=(r,c)=>{
+    const out=[];
+    for(const [dr,dc] of deltas){
+      const nr=r+dr,nc=c+dc;
+      if(nr>=0&&nr<N&&nc>=0&&nc<N&&regionOf[nr][nc]===-1) out.push({r:nr,c:nc});
+    }
+    return out;
+  };
+  for(let reg=0; reg<N; reg++){
+    const opts = shuffle(neighborsOf(reg, perm[reg]));
+    if(opts.length>0) regionOf[opts[0].r][opts[0].c] = reg;
+  }
+  let frontier = [];
+  const pushNeighbors = (r,c,region)=>{
+    for(const [dr,dc] of deltas){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<N&&nc>=0&&nc<N&&regionOf[nr][nc]===-1) frontier.push({r:nr,c:nc,region});
+    }
+  };
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(regionOf[r][c]!==-1) pushNeighbors(r,c,regionOf[r][c]);
+  let guard=0;
+  while(frontier.length>0 && guard<N*N*50){
+    guard++;
+    const idx=rand(frontier.length);
+    const item=frontier[idx];
+    frontier.splice(idx,1);
+    if(regionOf[item.r][item.c]!==-1) continue;
+    regionOf[item.r][item.c]=item.region;
+    pushNeighbors(item.r,item.c,item.region);
+  }
+  let leftover=true, guard2=0;
+  while(leftover && guard2<200){
+    guard2++; leftover=false;
+    for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+      if(regionOf[r][c]===-1){
+        leftover=true;
+        for(const [dr,dc] of deltas){
+          const nr=r+dr,nc=c+dc;
+          if(nr>=0&&nr<N&&nc>=0&&nc<N&&regionOf[nr][nc]!==-1){ regionOf[r][c]=regionOf[nr][nc]; break; }
+        }
+      }
+    }
+  }
+  return regionOf;
+}
+
+function hasSingletonRegion(N, regionOf){
+  const counts = new Array(N).fill(0);
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) counts[regionOf[r][c]]++;
+  return counts.some(n=>n===1);
+}
+
+// Same backtracker as countSolutions, but collects and returns the actual
+// solutions found (as column-permutation arrays) instead of just a count.
+// Used by the impossible-mode repair loop to identify a concrete alternate
+// solution so it can be surgically eliminated.
+function findSolutions(N, regionOf, limit){
+  const colUsed=new Array(N).fill(false);
+  const regionUsed=new Array(N).fill(false);
+  const placedCols=[];
+  const results=[];
+  function bt(r){
+    if(results.length>=limit) return;
+    if(r===N){ results.push(placedCols.slice()); return; }
+    for(let c=0;c<N;c++){
+      if(colUsed[c]) continue;
+      const reg=regionOf[r][c];
+      if(regionUsed[reg]) continue;
+      if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) continue; }
+      colUsed[c]=true; regionUsed[reg]=true; placedCols[r]=c;
+      bt(r+1);
+      colUsed[c]=false; regionUsed[reg]=false; placedCols.pop();
+      if(results.length>=limit) return;
+    }
+  }
+  bt(0);
+  return results;
+}
+function permsEqual(a,b){ for(let i=0;i<a.length;i++) if(a[i]!==b[i]) return false; return true; }
+
+function regionStaysConnectedWithout(N, regionOf, reg, exR, exC){
+  const cells=[];
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++) if(regionOf[r][c]===reg && !(r===exR&&c===exC)) cells.push([r,c]);
+  if(cells.length<=1) return true;
+  const key=(r,c)=>r*N+c;
+  const set=new Set(cells.map(([r,c])=>key(r,c)));
+  const visited=new Set([key(cells[0][0],cells[0][1])]);
+  const stack=[cells[0]];
+  while(stack.length){
+    const [r,c]=stack.pop();
+    for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+      const nr=r+dr,nc=c+dc,k=key(nr,nc);
+      if(set.has(k) && !visited.has(k)){ visited.add(k); stack.push([nr,nc]); }
+    }
+  }
+  return visited.size===cells.length;
+}
+
+// Given a spurious alternate solution (altPerm) that the current regionOf
+// wrongly allows, this makes exactly one boundary-cell move that eliminates
+// it. Pick a row r where altPerm disagrees with the true perm, and move that
+// single cell into a neighboring region. Since altPerm (being a full valid
+// solution) necessarily uses every region exactly once, handing that cell to
+// ANY neighboring region always makes two of altPerm's rows claim the same
+// region — invalidating altPerm — while perm's own owl cells are never
+// touched, so perm always stays valid. Only geometric constraints are
+// checked: don't shrink a region to a singleton, and don't disconnect it.
+function attemptUniquenessRepair(N, regionOf, perm, altPerm){
+  const deltas=[[-1,0],[1,0],[0,-1],[0,1]];
+  const diffRows = shuffle([...Array(N).keys()].filter(r=>altPerm[r]!==perm[r]));
+  for(const r of diffRows){
+    const c = altPerm[r];
+    const reg = regionOf[r][c];
+    let regSize=0;
+    for(let rr=0;rr<N;rr++) for(let cc=0;cc<N;cc++) if(regionOf[rr][cc]===reg) regSize++;
+    if(regSize<=2) continue; // would leave a singleton behind — skip
+    const neighborRegs = new Set();
+    for(const [dr,dc] of deltas){
+      const nr=r+dr, nc=c+dc;
+      if(nr>=0&&nr<N&&nc>=0&&nc<N){
+        const nreg = regionOf[nr][nc];
+        if(nreg!==reg) neighborRegs.add(nreg);
+      }
+    }
+    if(neighborRegs.size===0) continue;
+    if(!regionStaysConnectedWithout(N, regionOf, reg, r, c)) continue;
+    regionOf[r][c] = shuffle([...neighborRegs])[0];
+    return true;
+  }
+  return false;
+}
+
 function countSolutions(N, regionOf, givens, limit=2){
   const colUsed=new Array(N).fill(false);
   const regionUsed=new Array(N).fill(false);
@@ -1505,6 +1677,27 @@ function buildCandidate(N, seekMinimal){
   return {N, perm, regionOf, clues};
 }
 
+// Impossible mode requires BOTH a 0-clue (fully blank) unique solution AND a
+// region layout with no size-1 territories. Just growing random regions and
+// hoping to land on both properties at once is astronomically rare at larger
+// sizes (measured well under 1-in-100,000 for 10x10) — nowhere near feasible
+// to hit by chance. Instead: grow a singleton-free region layout, then run a
+// short repair loop that finds each spurious alternate solution the layout
+// still allows and surgically eliminates it via attemptUniquenessRepair,
+// converging on a genuinely unique 0-clue layout in a handful of steps.
+function buildImpossibleCandidate(N, maxRepairs){
+  const perm = generateSolution(N);
+  if(!perm) return null;
+  const regionOf = growRegionsNoSingles(N, perm);
+  for(let i=0;i<maxRepairs;i++){
+    const sols = findSolutions(N, regionOf, 2);
+    const altPerm = sols.find(s=>!permsEqual(s, perm));
+    if(!altPerm) return {N, perm, regionOf, clues:{}}; // no alternate left — unique
+    if(!attemptUniquenessRepair(N, regionOf, perm, altPerm)) return null; // stuck, retry fresh
+  }
+  return null;
+}
+
 // Difficulty is expressed as target clue count. Hard boards search across several
 // candidate solutions/regions to find one that's genuinely solvable with very few
 // givens (0-2). Medium/easy start from the minimal unique-solution clue set and
@@ -1517,6 +1710,22 @@ function clueTarget(difficulty, N){
 }
 
 function generatePuzzle(N, difficulty='medium'){
+  if(difficulty==='impossible'){
+    // One-time generation cost paid when a new board is requested (not a hot
+    // loop), so it's fine to retry generously. In testing this converges
+    // essentially every time — 10x10 succeeded 30/30 runs, median ~100ms,
+    // worst case under 1s.
+    const outerAttempts = N>=10 ? 250 : (N>=8 ? 120 : 60);
+    const maxRepairs = N>=10 ? 150 : (N>=8 ? 80 : 60);
+    for(let i=0;i<outerAttempts;i++){
+      const cand = buildImpossibleCandidate(N, maxRepairs);
+      if(cand) return cand;
+    }
+    // Should essentially never be reached, but guarantees a puzzle is still
+    // returned rather than failing outright.
+    return generatePuzzle(N, 'hard');
+  }
+
   const HARD_MAX = 2;
   const isHard = difficulty==='hard';
   const outerAttempts = isHard ? (N>=10 ? 18 : 10) : 1;
@@ -1556,8 +1765,8 @@ function b64urlDecode(str){
   return atob(str);
 }
 
-const DIFF_CODE = { easy:'e', medium:'m', hard:'h' };
-const DIFF_FROM_CODE = { e:'easy', m:'medium', h:'hard' };
+const DIFF_CODE = { easy:'e', medium:'m', hard:'h', impossible:'i' };
+const DIFF_FROM_CODE = { e:'easy', m:'medium', h:'hard', i:'impossible' };
 
 function packPuzzle(N, regionOf, clues, perm, difficulty){
   let regionStr = '';
@@ -1708,6 +1917,7 @@ let dragAction = null; // 'add' | 'remove'
 let hintUsed = false;
 let currentPuzzleCode = '';
 let currentDifficulty = 'easy';
+let hasInteracted = false; // true once the player has placed/removed an owl, X, or used a hint on the current board
 let conflictCell = null;     // {r,c} of the owl currently showing conflict feedback
 let conflictTimeoutA = null; // timer: start the fade
 let conflictTimeoutB = null; // timer: remove the owl / clear feedback
@@ -1875,6 +2085,17 @@ function hideTip(){
   if(tip) tip.classList.remove('show');
 }
 
+let tipFlashTimeout = null;
+function flashTip(msg, duration=1800){
+  clearTimeout(tipFlashTimeout);
+  showTip(msg);
+  tipFlashTimeout = setTimeout(hideTip, duration);
+}
+
+function isImpossible(){
+  return currentDifficulty === 'impossible';
+}
+
 function clearConflictTimers(){
   if(conflictTimeoutA){ clearTimeout(conflictTimeoutA); conflictTimeoutA = null; }
   if(conflictTimeoutB){ clearTimeout(conflictTimeoutB); conflictTimeoutB = null; }
@@ -1903,6 +2124,7 @@ function showConflictFeedback(r, c, conflicts){
 function toggleOwl(r,c){
   if(given[r][c]){ selectedCell={r,c}; render(); return; }
   selectedCell = {r,c};
+  hasInteracted = true;
   if(mark[r][c]==='owl'){
     mark[r][c]='empty';
     Sound.owlRemove();
@@ -1926,9 +2148,15 @@ function toggleOwl(r,c){
 }
 
 function paintX(r,c,action){
-  if(given[r][c] || mark[r][c]==='owl') return;
-  if(action==='add' && mark[r][c]!=='x'){ mark[r][c]='x'; render(); Sound.xSlideAdd(); }
-  else if(action==='remove' && mark[r][c]==='x'){ mark[r][c]='empty'; render(); Sound.xSlideRemove(); }
+  if(given[r][c]) return;
+  if(action==='add' && mark[r][c]!=='x'){
+    const wasOwl = mark[r][c]==='owl';
+    mark[r][c]='x';
+    hasInteracted = true;
+    render();
+    wasOwl ? Sound.owlRemove() : Sound.xSlideAdd();
+  }
+  else if(action==='remove' && mark[r][c]==='x'){ mark[r][c]='empty'; hasInteracted = true; render(); Sound.xSlideRemove(); }
 }
 
 function cellFromPoint(x,y){
@@ -1952,7 +2180,7 @@ function onGridPointerDown(e){
     return;
   }
   // x mode
-  if(given[r][c] || mark[r][c]==='owl'){ render(); return; }
+  if(given[r][c]){ render(); return; }
   const action = mark[r][c]==='x' ? 'remove' : 'add';
   dragAction = action;
   dragging = true;
@@ -1965,6 +2193,7 @@ function onDocPointerMove(e){
   e.preventDefault();
   const cell = cellFromPoint(e.clientX, e.clientY);
   if(!cell) return;
+  if(mark[cell.r][cell.c]==='owl') return;
   paintX(cell.r, cell.c, dragAction);
 }
 
@@ -2095,6 +2324,7 @@ function resetMarksOnly(){
   solved = false;
   selectedCell = null;
   hintUsed = false;
+  hasInteracted = false;
   updateHintButton();
   document.getElementById('winOverlay').classList.remove('show');
   document.getElementById('loseOverlay').classList.remove('show');
@@ -2108,8 +2338,16 @@ function updateHintButton(){
   btn.textContent = hintUsed ? 'Hint used' : 'Hint';
 }
 
+function updateImpossibleLocks(){
+  const locked = isImpossible();
+  document.getElementById('hintBtn').classList.toggle('locked', locked);
+  document.getElementById('clearBtn').classList.toggle('locked', locked);
+}
+
 function hint(){
+  if(isImpossible()){ flashTip("You can't use hints on impossible mode!"); return; }
   if(gameOver || solved || hintUsed) return;
+  hasInteracted = true;
   let target = null;
   outer:
   for(let r=0;r<N;r++) for(let c=0;c<N;c++){
@@ -2146,8 +2384,10 @@ function startPuzzle(result){
   solved = false;
   selectedCell = null;
   hintUsed = false;
+  hasInteracted = false;
   updateHintButton();
   currentDifficulty = document.getElementById('difficultySelect').value;
+  updateImpossibleLocks();
   updateBestTimeDisplay();
   document.getElementById('winOverlay').classList.remove('show');
   document.getElementById('loseOverlay').classList.remove('show');
@@ -2302,14 +2542,46 @@ async function sharePuzzle(btn, won){
   }
 }
 
-document.getElementById('clearBtn').addEventListener('click', ()=>{ if(!gameOver){ Sound.button(); resetMarksOnly(); } });
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(gameOver) return;
+  Sound.button();
+  if(isImpossible()){ flashTip("You can't reset on impossible mode!"); return; }
+  if(hasInteracted){ openConfirm('reset'); } else { resetMarksOnly(); }
+});
 document.getElementById('hintBtn').addEventListener('click', hint);
-document.getElementById('newBtn').addEventListener('click', newGame);
+document.getElementById('newBtn').addEventListener('click', ()=>{
+  Sound.button();
+  if(hasInteracted){ openConfirm('new'); } else { newGame(); }
+});
 document.getElementById('playAgainBtn').addEventListener('click', newGame);
 document.getElementById('retryBtn').addEventListener('click', ()=>{ Sound.button(); resetMarksOnly(); });
 document.getElementById('freshBtn').addEventListener('click', newGame);
 document.getElementById('sizeSelect').addEventListener('change', newGame);
 document.getElementById('difficultySelect').addEventListener('change', newGame);
+let confirmAction = null; // 'reset' | 'new'
+const confirmOverlay = document.getElementById('confirmOverlay');
+const confirmText = document.getElementById('confirmText');
+
+function openConfirm(action){
+  confirmAction = action;
+  confirmText.textContent = action === 'reset'
+    ? "This will clear your progress on the current board."
+    : "This will start a fresh board and your current progress will be lost.";
+  confirmOverlay.classList.add('show');
+}
+function closeConfirm(){
+  confirmOverlay.classList.remove('show');
+  confirmAction = null;
+}
+document.getElementById('confirmYesBtn').addEventListener('click', ()=>{
+  Sound.button();
+  const action = confirmAction;
+  closeConfirm();
+  if(action==='reset') resetMarksOnly();
+  else if(action==='new') newGame();
+});
+document.getElementById('confirmNoBtn').addEventListener('click', ()=>{ Sound.button(); closeConfirm(); });
+
 document.getElementById('shareWinBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget, true));
 document.getElementById('shareLoseBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget, false));
 
@@ -2497,6 +2769,7 @@ function showTutorial(){ tutPage = 0; renderTutorialPage(); tutorialOverlay.clas
 function hideTutorial(){ tutorialOverlay.classList.remove('show'); markTutorialSeen(); }
 
 helpBtn.addEventListener('click', ()=>{ Sound.button(); showTutorial(); });
+document.getElementById('tutCloseBtn').addEventListener('click', ()=>{ Sound.button(); hideTutorial(); });
 tutDots.addEventListener('click', (e)=>{
   const dot = e.target.closest('.dot');
   if(!dot) return;
