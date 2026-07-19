@@ -291,6 +291,17 @@
     touch-action:none;
   }
   .overlay.show{ display:flex; }
+  .overlay.tut-top{ align-items:flex-start; }
+  .overlay.tut-bottom{ align-items:flex-end; }
+  .mode-btn.tut-glow{
+    position:relative; z-index:11;
+    border-color:var(--accent);
+    animation:tutGlowPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes tutGlowPulse{
+    0%,100%{ box-shadow:0 0 0 2px var(--accent), 0 0 14px 4px rgba(232,163,61,0.55); }
+    50%{ box-shadow:0 0 0 2px var(--accent), 0 0 26px 9px rgba(232,163,61,0.9); }
+  }
   .card{
     position:relative; z-index:2;
     background:var(--surface); border:1px solid var(--line-strong); border-radius:18px;
@@ -589,8 +600,8 @@
   </div>
 
   <div class="modebar">
-    <button class="mode-btn active" id="owlModeBtn"><span class="ic" id="owlModeIcon"></span> Place owls</button>
-    <button class="mode-btn" id="xModeBtn"><span class="ic">✕</span> Mark X</button>
+    <button class="mode-btn active" id="xModeBtn"><span class="ic">✕</span> Mark X</button>
+    <button class="mode-btn" id="owlModeBtn"><span class="ic" id="owlModeIcon"></span> Place owls</button>
   </div>
 
   <div class="toolbar">
@@ -1025,6 +1036,27 @@ const Music = (function(){
     }
   ];
 
+  const MUSIC_PREFS_KEY = 'owldoku_music_prefs';
+  (function restoreMusicPrefs(){
+    try{
+      const raw = localStorage.getItem(MUSIC_PREFS_KEY);
+      if(!raw) return;
+      const prefs = JSON.parse(raw);
+      if(typeof prefs.songIndex === 'number'){
+        const n = SONGS.length;
+        songIndex = ((prefs.songIndex % n) + n) % n;
+      }
+      if(typeof prefs.loopSong === 'boolean') loopSong = prefs.loopSong;
+      if(typeof prefs.muted === 'boolean') muted = prefs.muted;
+      if(typeof prefs.volume === 'number') volume = Math.max(0, Math.min(1, prefs.volume));
+    }catch(e){ /* storage unavailable or corrupt — ignore */ }
+  })();
+  function saveMusicPrefs(){
+    try{
+      localStorage.setItem(MUSIC_PREFS_KEY, JSON.stringify({ songIndex, loopSong, muted, volume }));
+    }catch(e){ /* storage unavailable — ignore */ }
+  }
+
   function currentSong(){ return SONGS[songIndex]; }
   function spb(){ return 60/currentSong().bpm; }
   function effectiveGain(){ return muted ? 0.0001 : Math.max(0.0001, volume*MAX_GAIN); }
@@ -1339,6 +1371,7 @@ const Music = (function(){
       applyRainTarget();
     }
     armAutoAdvance();
+    saveMusicPrefs();
   }
 
   function next(){ switchSong(songIndex + 1); }
@@ -1349,6 +1382,7 @@ const Music = (function(){
     toggleMute(){
       muted = !muted;
       if(muted) stop(); else start();
+      saveMusicPrefs();
       return muted;
     },
     isOn(){ return !muted; },
@@ -1359,10 +1393,12 @@ const Music = (function(){
         master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
         master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 0.05);
       }
+      saveMusicPrefs();
     },
     toggleLoop(){
       loopSong = !loopSong;
       armAutoAdvance();
+      saveMusicPrefs();
       return loopSong;
     },
     next(){ next(); },
@@ -1911,7 +1947,7 @@ let timerInterval = null;
 let gameOver = false;
 let solved = false;
 let selectedCell = null;
-let mode = 'owl'; // 'owl' | 'x'
+let mode = 'x'; // 'owl' | 'x'
 let dragging = false;
 let dragAction = null; // 'add' | 'remove'
 let hintUsed = false;
@@ -2341,7 +2377,6 @@ function updateHintButton(){
 function updateImpossibleLocks(){
   const locked = isImpossible();
   document.getElementById('hintBtn').classList.toggle('locked', locked);
-  document.getElementById('clearBtn').classList.toggle('locked', locked);
 }
 
 function hint(){
@@ -2545,7 +2580,6 @@ async function sharePuzzle(btn, won){
 document.getElementById('clearBtn').addEventListener('click', ()=>{
   if(gameOver) return;
   Sound.button();
-  if(isImpossible()){ flashTip("You can't reset on impossible mode!"); return; }
   if(hasInteracted){ openConfirm('reset'); } else { resetMarksOnly(); }
 });
 document.getElementById('hintBtn').addEventListener('click', hint);
@@ -2758,6 +2792,26 @@ function renderTutorialPage(){
   ).join('');
   tutPrevBtn.classList.toggle('ghost', tutPage===0);
   tutNextBtn.textContent = tutPage === TUTORIAL_PAGES.length-1 ? 'Got it' : 'Next';
+  // spotlight the real mode button the current page is talking about
+  const highlightBtn = tutPage===2 ? xModeBtn : (tutPage===3 ? owlModeBtn : null);
+  xModeBtn.classList.toggle('tut-glow', tutPage===2);
+  owlModeBtn.classList.toggle('tut-glow', tutPage===3);
+  positionTutorialOverlay(highlightBtn);
+}
+
+// Moves the tutorial card up or down so it never sits on top of the real
+// button it's currently spotlighting — measured live, since the modebar's
+// on-screen position can shift with viewport size/orientation.
+function positionTutorialOverlay(highlightBtn){
+  tutorialOverlay.classList.remove('tut-top', 'tut-bottom');
+  if(!highlightBtn) return;
+  const btnRect = highlightBtn.getBoundingClientRect();
+  const btnMid = btnRect.top + btnRect.height/2;
+  if(btnMid > window.innerHeight/2){
+    tutorialOverlay.classList.add('tut-top');
+  } else {
+    tutorialOverlay.classList.add('tut-bottom');
+  }
 }
 
 function goTutorialPage(i){
@@ -2766,7 +2820,12 @@ function goTutorialPage(i){
 }
 
 function showTutorial(){ tutPage = 0; renderTutorialPage(); tutorialOverlay.classList.add('show'); }
-function hideTutorial(){ tutorialOverlay.classList.remove('show'); markTutorialSeen(); }
+function hideTutorial(){
+  tutorialOverlay.classList.remove('show');
+  xModeBtn.classList.remove('tut-glow');
+  owlModeBtn.classList.remove('tut-glow');
+  markTutorialSeen();
+}
 
 helpBtn.addEventListener('click', ()=>{ Sound.button(); showTutorial(); });
 document.getElementById('tutCloseBtn').addEventListener('click', ()=>{ Sound.button(); hideTutorial(); });
@@ -2817,6 +2876,10 @@ document.addEventListener('pointercancel', onDocPointerUp);
 document.getElementById('owlModeIcon').innerHTML = OWL_SVG;
 document.getElementById('winOwlIcon').innerHTML = OWL_HAPPY_SVG;
 document.getElementById('loseOwlIcon').innerHTML = OWL_SAD_SVG;
+
+// reflect any restored music preference (mute state) on the header icon right away,
+// without needing to open the music panel first
+renderMusicPanel();
 
 if(!loadPuzzleFromURL()){
   newGame();
