@@ -339,6 +339,16 @@
   }
   .tut-hearts{ margin:-6px 0 14px; font-size:0.95rem; color:var(--miss); letter-spacing:3px; }
   .tut-hearts .lost{ opacity:0.25; filter:grayscale(1); }
+  .tut-gameover-overlay{
+    position:absolute; inset:7px; border-radius:8px;
+    background:rgba(23,19,31,0.88);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:4px; text-align:center; padding:8px;
+  }
+  .tut-gameover-overlay .tgo-owl{ width:30px; height:30px; }
+  .tut-gameover-overlay .tgo-owl svg{ width:100%; height:100%; display:block; }
+  .tut-gameover-overlay .tgo-title{ font-family:'Fraunces', serif; font-style:italic; font-weight:600; font-size:0.95rem; color:var(--ink); }
+  .tut-gameover-overlay .tgo-sub{ font-size:0.62rem; color:var(--ink-dim); letter-spacing:0.02em; }
   .tutorial-card p{ min-height:58px; display:flex; align-items:center; justify-content:center; }
   .tut-dots{ display:flex; justify-content:center; gap:6px; margin:-4px 0 16px; }
   .tut-dots .dot{
@@ -608,7 +618,7 @@
   </div>
 
   <div class="modebar">
-    <button class="mode-btn active" id="xModeBtn"><span class="ic">✕</span> Mark X</button>
+    <button class="mode-btn active" id="xModeBtn"><span class="ic" id="xModeIcon">✕</span> <span id="xModeLabel">Mark X</span></button>
     <button class="mode-btn" id="owlModeBtn"><span class="ic" id="owlModeIcon"></span> Place owls</button>
   </div>
 
@@ -2017,6 +2027,7 @@ let regionOf = [];
 let solutionPerm = [];
 let given = []; // boolean grid
 let mark = [];  // 'empty' | 'x' | 'owl'
+let markGlyph = []; // per-cell glyph for 'x' marks: 'x' | 'q' — fixed at placement time, doesn't change on mode switch
 let hearts = 3;
 let seconds = 0;
 let timerInterval = null;
@@ -2024,6 +2035,7 @@ let gameOver = false;
 let solved = false;
 let selectedCell = null;
 let mode = 'x'; // 'owl' | 'x'
+let xGlyph = 'x'; // 'x' | 'q' — cosmetic skin for x-mode marks, toggled by re-tapping the mode button
 let dragging = false;
 let dragAction = null; // 'add' | 'remove'
 let hintUsed = false;
@@ -2269,6 +2281,7 @@ function paintX(r,c,action){
   if(action==='add' && mark[r][c]!=='x'){
     const wasOwl = mark[r][c]==='owl';
     mark[r][c]='x';
+    markGlyph[r][c] = xGlyph;
     hasInteracted = true;
     render();
     wasOwl ? Sound.owlRemove() : Sound.xSlideAdd();
@@ -2336,7 +2349,7 @@ function render(){
       if(isOwl){
         inner = `<div class="glyph">${OWL_SVG}</div>`;
       } else if(mark[r][c]==='x'){
-        inner = xSvg();
+        inner = xSvg(markGlyph[r][c]);
       }
       const isConflictCell = conflictCell && conflictCell.r===r && conflictCell.c===c;
       if(isConflictCell) inner += conflictXSvg();
@@ -2354,7 +2367,10 @@ function conflictXSvg(){
   return `<div class="conflict-x"><svg viewBox="0 0 24 24" fill="none" stroke="var(--miss)" stroke-width="4" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></div>`;
 }
 
-function xSvg(){
+function xSvg(glyph){
+  if(glyph==='q'){
+    return `<div class="xmark"><svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(12 12) scale(1.18) translate(-12 -12)"><path d="M8.5 9a3.5 3.5 0 1 1 4.9 3.2c-1.05.46-1.4 1.08-1.4 2.05v.45"/><circle cx="12" cy="18.4" r="1.6" fill="#f4eee0" stroke="none"/></g></svg></div>`;
+  }
   return `<div class="xmark"><svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></div>`;
 }
 
@@ -2489,6 +2505,7 @@ function startPuzzle(result){
   solutionPerm = result.perm;
   given = Array.from({length:N},()=>Array(N).fill(false));
   mark = Array.from({length:N},()=>Array(N).fill('empty'));
+  markGlyph = Array.from({length:N},()=>Array(N).fill('x'));
   for(const rowStr in result.clues){
     const r = parseInt(rowStr,10);
     const c = result.clues[rowStr];
@@ -2735,7 +2752,21 @@ document.getElementById('shareLoseBtn').addEventListener('click', (e)=> sharePuz
 
 const owlModeBtn = document.getElementById('owlModeBtn');
 const xModeBtn = document.getElementById('xModeBtn');
+const xModeIcon = document.getElementById('xModeIcon');
+const xModeLabel = document.getElementById('xModeLabel');
+function updateXModeBtn(){
+  xModeIcon.textContent = xGlyph==='q' ? '?' : '✕';
+  xModeLabel.textContent = xGlyph==='q' ? 'Mark ?' : 'Mark X';
+}
 function setMode(m){
+  if(m==='x' && mode==='x'){
+    // already in x-mode: tapping again swaps the mark's icon between ✕ and ?
+    xGlyph = xGlyph==='x' ? 'q' : 'x';
+    Sound.modeSwitch();
+    updateXModeBtn();
+    render();
+    return;
+  }
   if(mode !== m) Sound.modeSwitch();
   mode = m;
   owlModeBtn.classList.toggle('active', m==='owl');
@@ -2807,6 +2838,7 @@ musicSongList.addEventListener('click', (e)=>{
 
 /* ---------- tutorial: paginated, illustrated rule pages ---------- */
 const XMARK_SVG_MINI = `<svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
+const QMARK_SVG_MINI = `<svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(12 12) scale(1.18) translate(-12 -12)"><path d="M8.5 9a3.5 3.5 0 1 1 4.9 3.2c-1.05.46-1.4 1.08-1.4 2.05v.45"/><circle cx="12" cy="18.4" r="1.6" fill="#f4eee0" stroke="none"/></g></svg>`;
 
 // shared 5x5 region layout used to illustrate every tutorial page
 const TUT_REGIONS = [
@@ -2822,6 +2854,7 @@ function tutBoardHTML(spec){
   const colors = regionColors(n);
   const owls = spec.owls || [];
   const xs = spec.xs || [];
+  const qs = spec.qs || [];
   const errors = spec.errors || [];
   const selected = spec.selected || null;
   let html = `<div class="tut-grid" style="grid-template-columns:repeat(${n},1fr); grid-template-rows:repeat(${n},1fr);">`;
@@ -2829,6 +2862,7 @@ function tutBoardHTML(spec){
     for(let c=0;c<n;c++){
       const isOwl = owls.some(([or,oc])=>or===r&&oc===c);
       const isX = xs.some(([or,oc])=>or===r&&oc===c);
+      const isQ = qs.some(([or,oc])=>or===r&&oc===c);
       const isError = errors.some(([or,oc])=>or===r&&oc===c);
       const isSelected = selected && selected[0]===r && selected[1]===c;
       let cls = 'cell';
@@ -2837,6 +2871,7 @@ function tutBoardHTML(spec){
       html += `<div class="${cls}"><div class="fill" style="background:${colors[TUT_REGIONS[r][c]]}"></div>`;
       if(isOwl) html += `<div class="glyph">${OWL_SVG}</div>`;
       if(isX) html += `<div class="xmark">${XMARK_SVG_MINI}</div>`;
+      if(isQ) html += `<div class="xmark">${QMARK_SVG_MINI}</div>`;
       html += `</div>`;
     }
   }
@@ -2851,6 +2886,9 @@ function tutBoardHTML(spec){
     html += `<svg class="tut-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
       <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--miss)" stroke-width="2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>
     </svg>`;
+  }
+  if(spec.gameOver){
+    html += `<div class="tut-gameover-overlay"><div class="tgo-owl">${OWL_SAD_SVG}</div><div class="tgo-title">Out of hearts</div><div class="tgo-sub">Game over</div></div>`;
   }
   return html;
 }
@@ -2868,7 +2906,7 @@ const TUTORIAL_PAGES = [
   },
   {
     title: 'Mark X to track empty cells',
-    text: "Switch to Mark X mode and tap or drag to cross out spots you know are empty. It's just a note to yourself.",
+    text: "Switch to Mark X mode and tap or drag to cross out spots you know are empty. Tap the button again to swap to ? Mode.",
     board: { owls: [[2,2]], xs: [[0,2],[1,2],[3,2],[4,2],[2,0],[2,1],[2,3],[2,4]] }
   },
   {
@@ -3012,24 +3050,21 @@ const NOLINES_TUTORIAL_PAGES = [
   {
     title: 'For what it\u2019s worth',
     text: "Designing this algorithm was a technical feat. It took millions of generated puzzles to get right, and it broke a couple of AIs that tried to comprehend it.",
-    board: { owls: [[2,2]], xs: [[0,0],[0,1],[0,2],[0,3],[1,0],[1,3],[1,4],[2,0],[2,4],[3,1],[3,3],[3,4],[4,0],[4,1],[4,3]] },
-    caption: '(unrelated gameplay photo)'
+    board: { qs: [[0,0],[0,1],[0,2],[0,3],[0,4],[1,0],[1,1],[1,2],[1,3],[1,4],[2,0],[2,1],[2,2],[2,3],[2,4],[3,0],[3,1],[3,2],[3,3],[3,4],[4,0],[4,1],[4,2],[4,3],[4,4]] }
   },
   {
     title: 'No shame in it',
     text: "No one will be disappointed in you for turning back now. You're good at this game \u2014 we get it.",
     board: { owls: [[0,2],[2,4],[4,1]], errors: [[0,2]] },
     hearts: 1,
-    icon: 'sad',
-    caption: '(unrelated gameplay photo)'
+    icon: 'sad'
   },
   {
     title: 'One more thing',
     text: "I designed this game, and even on 6\u00d76, No Lines is too much for me. It gave me a migraine in 20 minutes. Please don\u2019t do this.",
-    board: { owls: [[0,4],[1,1],[2,3],[3,0],[4,2]] },
-    hearts: 3,
-    icon: 'happy',
-    caption: '(me, having survived one round)'
+    board: { owls: [[0,4],[1,1],[2,3],[3,0],[4,2]], gameOver: true },
+    hearts: 0,
+    icon: 'sad'
   }
 ];
 
