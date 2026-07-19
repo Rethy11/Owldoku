@@ -589,6 +589,7 @@
         <option value="medium">Medium</option>
         <option value="hard">Hard</option>
         <option value="impossible">Impossible</option>
+        <option value="nolines">No Lines</option>
       </select>
     </div>
   </div>
@@ -1422,7 +1423,7 @@ function shuffle(arr){
   return arr;
 }
 
-function generateSolution(N, attempts=500){
+function generateSolution(N, attempts=500, noLines=false){
   for(let a=0;a<attempts;a++){
     const perm = new Array(N).fill(-1);
     const used = new Array(N).fill(false);
@@ -1431,7 +1432,11 @@ function generateSolution(N, attempts=500){
       const order = shuffle([...Array(N).keys()]);
       for(const c of order){
         if(used[c]) continue;
-        if(r>0 && Math.abs(perm[r-1]-c)<2) continue;
+        if(noLines){
+          let onLine=false;
+          for(let pr=0; pr<r; pr++){ if(Math.abs(perm[pr]-c)===r-pr){ onLine=true; break; } }
+          if(onLine) continue;
+        } else if(r>0 && Math.abs(perm[r-1]-c)<2) continue;
         perm[r]=c; used[c]=true;
         if(bt(r+1)) return true;
         used[c]=false; perm[r]=-1;
@@ -1553,11 +1558,15 @@ function hasSingletonRegion(N, regionOf){
 // solutions found (as column-permutation arrays) instead of just a count.
 // Used by the impossible-mode repair loop to identify a concrete alternate
 // solution so it can be surgically eliminated.
-function findSolutions(N, regionOf, limit){
+function findSolutions(N, regionOf, limit, noLines=false){
   const colUsed=new Array(N).fill(false);
   const regionUsed=new Array(N).fill(false);
   const placedCols=[];
   const results=[];
+  function onAnyLine(r,c){
+    for(let pr=0; pr<r; pr++){ if(Math.abs(placedCols[pr]-c)===r-pr) return true; }
+    return false;
+  }
   function bt(r){
     if(results.length>=limit) return;
     if(r===N){ results.push(placedCols.slice()); return; }
@@ -1565,7 +1574,8 @@ function findSolutions(N, regionOf, limit){
       if(colUsed[c]) continue;
       const reg=regionOf[r][c];
       if(regionUsed[reg]) continue;
-      if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) continue; }
+      if(noLines){ if(onAnyLine(r,c)) continue; }
+      else if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) continue; }
       colUsed[c]=true; regionUsed[reg]=true; placedCols[r]=c;
       bt(r+1);
       colUsed[c]=false; regionUsed[reg]=false; placedCols.pop();
@@ -1629,11 +1639,15 @@ function attemptUniquenessRepair(N, regionOf, perm, altPerm){
   return false;
 }
 
-function countSolutions(N, regionOf, givens, limit=2){
+function countSolutions(N, regionOf, givens, limit=2, noLines=false){
   const colUsed=new Array(N).fill(false);
   const regionUsed=new Array(N).fill(false);
   const placedCols=[];
   let count=0;
+  function onAnyLine(r,c){
+    for(let pr=0; pr<r; pr++){ if(Math.abs(placedCols[pr]-c)===r-pr) return true; }
+    return false;
+  }
   function bt(r){
     if(count>=limit) return;
     if(r===N){ count++; return; }
@@ -1641,7 +1655,8 @@ function countSolutions(N, regionOf, givens, limit=2){
       const c=givens[r];
       const reg=regionOf[r][c];
       if(colUsed[c]||regionUsed[reg]) return;
-      if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) return; }
+      if(noLines){ if(onAnyLine(r,c)) return; }
+      else if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) return; }
       colUsed[c]=true; regionUsed[reg]=true; placedCols[r]=c;
       bt(r+1);
       colUsed[c]=false; regionUsed[reg]=false; placedCols.pop();
@@ -1651,7 +1666,8 @@ function countSolutions(N, regionOf, givens, limit=2){
       if(colUsed[c]) continue;
       const reg=regionOf[r][c];
       if(regionUsed[reg]) continue;
-      if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) continue; }
+      if(noLines){ if(onAnyLine(r,c)) continue; }
+      else if(r>0){ const prevC=placedCols[r-1]; if(Math.abs(prevC-c)<=1) continue; }
       colUsed[c]=true; regionUsed[reg]=true; placedCols[r]=c;
       bt(r+1);
       colUsed[c]=false; regionUsed[reg]=false; placedCols.pop();
@@ -1662,9 +1678,9 @@ function countSolutions(N, regionOf, givens, limit=2){
   return count;
 }
 
-function greedyClues(N, regionOf, perm){
+function greedyClues(N, regionOf, perm, noLines=false){
   const givens = {};
-  if(countSolutions(N, regionOf, givens, 2)===1) return givens;
+  if(countSolutions(N, regionOf, givens, 2, noLines)===1) return givens;
   const remainingRows = shuffle([...Array(N).keys()]);
   let guard = 0;
   while(guard++ < N){
@@ -1673,25 +1689,25 @@ function greedyClues(N, regionOf, perm){
       if(givens[r]!==undefined) continue;
       const trial = Object.assign({}, givens);
       trial[r]=perm[r];
-      const cnt = countSolutions(N, regionOf, trial, 3);
+      const cnt = countSolutions(N, regionOf, trial, 3, noLines);
       if(cnt < bestCount){ bestCount=cnt; bestRow=r; }
       if(cnt===1) break;
     }
     if(bestRow===null) break;
     givens[bestRow]=perm[bestRow];
-    if(countSolutions(N, regionOf, givens, 2)===1) break;
+    if(countSolutions(N, regionOf, givens, 2, noLines)===1) break;
   }
   return givens;
 }
 
-function buildCandidate(N, seekMinimal){
-  const perm = generateSolution(N);
+function buildCandidate(N, seekMinimal, noLines=false){
+  const perm = generateSolution(N, 500, noLines);
   if(!perm) return null;
   const growAttempts = N<=6?10:(N<=8?20:40);
   let regionOf=null;
   for(let g=0; g<growAttempts; g++){
     const r = growRegions(N, perm);
-    if(countSolutions(N, r, {}, 2)===1){ regionOf=r; break; }
+    if(countSolutions(N, r, {}, 2, noLines)===1){ regionOf=r; break; }
   }
   let clues={};
   if(!regionOf){
@@ -1702,7 +1718,7 @@ function buildCandidate(N, seekMinimal){
     let bestClues=null, bestRegion=null;
     for(let s=0;s<sampleCount;s++){
       const r = growRegions(N, perm);
-      const cl = greedyClues(N, r, perm);
+      const cl = greedyClues(N, r, perm, noLines);
       if(bestClues===null || Object.keys(cl).length < Object.keys(bestClues).length){
         bestClues = cl; bestRegion = r;
       }
@@ -1722,12 +1738,12 @@ function buildCandidate(N, seekMinimal){
 // short repair loop that finds each spurious alternate solution the layout
 // still allows and surgically eliminates it via attemptUniquenessRepair,
 // converging on a genuinely unique 0-clue layout in a handful of steps.
-function buildImpossibleCandidate(N, maxRepairs){
-  const perm = generateSolution(N);
+function buildImpossibleCandidate(N, maxRepairs, noLines=false){
+  const perm = generateSolution(N, 500, noLines);
   if(!perm) return null;
   const regionOf = growRegionsNoSingles(N, perm);
   for(let i=0;i<maxRepairs;i++){
-    const sols = findSolutions(N, regionOf, 2);
+    const sols = findSolutions(N, regionOf, 2, noLines);
     const altPerm = sols.find(s=>!permsEqual(s, perm));
     if(!altPerm) return {N, perm, regionOf, clues:{}}; // no alternate left — unique
     if(!attemptUniquenessRepair(N, regionOf, perm, altPerm)) return null; // stuck, retry fresh
@@ -1747,20 +1763,56 @@ function clueTarget(difficulty, N){
 }
 
 function generatePuzzle(N, difficulty='medium'){
-  if(difficulty==='impossible'){
+  const result = generatePuzzleCore(N, difficulty);
+  // Stamp the difficulty actually used to build this puzzle onto the result
+  // itself, so callers never have to (and never mistakenly do) infer it from
+  // whatever the difficulty <select> currently shows — that can change while
+  // generation is still running.
+  if(result) result.difficulty = difficulty;
+  return result;
+}
+
+function generatePuzzleCore(N, difficulty='medium'){
+  if(difficulty==='impossible' || difficulty==='nolines'){
     // One-time generation cost paid when a new board is requested (not a hot
     // loop), so it's fine to retry generously. In testing this converges
     // essentially every time — 10x10 succeeded 30/30 runs, median ~100ms,
-    // worst case under 1s.
+    // worst case under 1s. 'nolines' adds a full diagonal-exclusion rule on
+    // top (no two owls share ANY diagonal, not just adjacent ones) — since
+    // that constraint prunes far more candidate solutions up front, it tends
+    // to converge on a unique 0-clue layout just as reliably.
+    const noLines = difficulty==='nolines';
     const outerAttempts = N>=10 ? 250 : (N>=8 ? 120 : 60);
     const maxRepairs = N>=10 ? 150 : (N>=8 ? 80 : 60);
     for(let i=0;i<outerAttempts;i++){
-      const cand = buildImpossibleCandidate(N, maxRepairs);
+      const cand = buildImpossibleCandidate(N, maxRepairs, noLines);
       if(cand) return cand;
     }
     // Should essentially never be reached, but guarantees a puzzle is still
-    // returned rather than failing outright.
-    return generatePuzzle(N, 'hard');
+    // returned rather than failing outright. Falls back to a minimal- (rather
+    // than zero-) clue board, still honoring the no-lines rule if it's active,
+    // instead of silently dropping the constraint.
+    const fallback = buildCandidate(N, true, noLines);
+    if(fallback) return fallback;
+    // Absolute last resort. Do NOT call generatePuzzle(N,'hard') here — that
+    // silently drops noLines entirely (it defaults the flag to false), so a
+    // 'nolines' puzzle could come back with owls sharing a diagonal while the
+    // UI still thinks it's in no-lines mode. Re-run the same hard-style
+    // minimal-clue search buildCandidate uses, but keep noLines honored.
+    const hardAttempts = N>=10 ? 18 : 10;
+    let best = null;
+    for(let i=0;i<hardAttempts;i++){
+      const cand = buildCandidate(N, true, noLines);
+      if(!cand) continue;
+      const clueCount = Object.keys(cand.clues).length;
+      if(!best || clueCount < Object.keys(best.clues).length) best = cand;
+      if(clueCount<=2) break;
+    }
+    if(best) return best;
+    // generateSolution itself couldn't find any noLines-valid permutation for
+    // this N (only possible for very small/degenerate sizes) — nothing left
+    // to try that would still respect the rule.
+    return null;
   }
 
   const HARD_MAX = 2;
@@ -1802,8 +1854,8 @@ function b64urlDecode(str){
   return atob(str);
 }
 
-const DIFF_CODE = { easy:'e', medium:'m', hard:'h', impossible:'i' };
-const DIFF_FROM_CODE = { e:'easy', m:'medium', h:'hard', i:'impossible' };
+const DIFF_CODE = { easy:'e', medium:'m', hard:'h', impossible:'i', nolines:'x' };
+const DIFF_FROM_CODE = { e:'easy', m:'medium', h:'hard', i:'impossible', x:'nolines' };
 
 function packPuzzle(N, regionOf, clues, perm, difficulty){
   let regionStr = '';
@@ -2082,26 +2134,31 @@ function allOwls(){
 
 function owlConflicts(r,c, owls){
   const conflicts = [];
+  const noLines = currentDifficulty === 'nolines';
   for(const [or,oc] of owls){
     if(or===r && oc===c) continue;
     const sameRow = or===r;
     const sameCol = oc===c;
     const sameRegion = regionOf[or][oc]===regionOf[r][c];
     const touching = Math.abs(or-r)<=1 && Math.abs(oc-c)<=1;
-    if(sameRow || sameCol || sameRegion || touching) conflicts.push([or,oc]);
+    const onDiagonal = noLines && Math.abs(or-r)===Math.abs(oc-c);
+    if(sameRow || sameCol || sameRegion || touching || onDiagonal) conflicts.push([or,oc]);
   }
   return conflicts;
 }
 
 function conflictMessage(r, c, conflicts){
-  let touch=false, col=false, row=false, region=false;
+  const noLines = currentDifficulty === 'nolines';
+  let touch=false, col=false, row=false, region=false, diagonal=false;
   for(const [or,oc] of conflicts){
     if(Math.abs(or-r)<=1 && Math.abs(oc-c)<=1) touch = true;
+    else if(noLines && Math.abs(or-r)===Math.abs(oc-c)) diagonal = true;
     if(oc===c) col = true;
     if(or===r) row = true;
     if(regionOf[or][oc]===regionOf[r][c]) region = true;
   }
   if(touch) return "Owls can't touch!";
+  if(diagonal) return "No straight lines — owls can't share a diagonal!";
   if(col) return "Owls can't share a column!";
   if(row) return "Owls can't share a row!";
   if(region) return "Owls can't share a color!";
@@ -2130,7 +2187,7 @@ function flashTip(msg, duration=1800){
 }
 
 function isImpossible(){
-  return currentDifficulty === 'impossible';
+  return currentDifficulty === 'impossible' || currentDifficulty === 'nolines';
 }
 
 function clearConflictTimers(){
@@ -2381,7 +2438,7 @@ function updateImpossibleLocks(){
 }
 
 function hint(){
-  if(isImpossible()){ flashTip("You can't use hints on impossible mode!"); return; }
+  if(isImpossible()){ flashTip(`You can't use hints on ${currentDifficulty==='nolines'?'no lines':'impossible'} mode!`); return; }
   if(gameOver || solved || hintUsed) return;
   hasInteracted = true;
   let target = null;
@@ -2422,7 +2479,13 @@ function startPuzzle(result){
   hintUsed = false;
   hasInteracted = false;
   updateHintButton();
-  currentDifficulty = document.getElementById('difficultySelect').value;
+  // Use the difficulty this puzzle was actually generated for, not whatever
+  // the <select> currently shows — those can disagree if a newer generation
+  // request overlapped with this one (see the generationToken guard in
+  // newGame()). Falls back to the live select for puzzles built before this
+  // field existed (e.g. an older shared URL).
+  currentDifficulty = result.difficulty || document.getElementById('difficultySelect').value;
+  document.getElementById('difficultySelect').value = currentDifficulty;
   updateImpossibleLocks();
   updateBestTimeDisplay();
   document.getElementById('winOverlay').classList.remove('show');
@@ -2439,12 +2502,36 @@ function startPuzzle(result){
   startTimer();
 }
 
+// Bumped on every newGame() call so a slower, older generation can tell it's
+// been superseded and bail out instead of clobbering a newer, correct result
+// with a stale one (this is what let 'no lines' puzzles occasionally get a
+// puzzle actually generated under a different difficulty — see newGame()).
+let generationToken = 0;
+
 async function newGame(){
-  N = parseInt(document.getElementById('sizeSelect').value, 10);
-  const difficulty = document.getElementById('difficultySelect').value;
+  const myToken = ++generationToken;
+  const requestedN = parseInt(document.getElementById('sizeSelect').value, 10);
+  const requestedDifficulty = document.getElementById('difficultySelect').value;
   document.getElementById('boardWrap').classList.add('generating');
   await new Promise(res=>setTimeout(res, 10));
-  const result = generatePuzzle(N, difficulty);
+  const result = generatePuzzle(requestedN, requestedDifficulty);
+  if(!result){
+    // Only reachable if even the no-lines-preserving last resort couldn't
+    // find a valid layout for this size — keep the current board rather than
+    // crashing on a null result, and let the player know.
+    document.getElementById('boardWrap').classList.remove('generating');
+    flashTip("Couldn't generate that puzzle — try again");
+    return;
+  }
+  if(myToken !== generationToken){
+    // A newer newGame() call started (size/difficulty change, another click,
+    // etc.) while this one was still generating. Whatever it produced is for
+    // stale settings — discard it and let the newer call apply its own
+    // result. Don't touch the DOM/'generating' class here; that's the newer
+    // call's responsibility.
+    return;
+  }
+  N = requestedN;
   startPuzzle(result);
   document.getElementById('boardWrap').classList.remove('generating');
   Sound.newPuzzle();
