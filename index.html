@@ -341,7 +341,7 @@
   .tut-hearts .lost{ opacity:0.25; filter:grayscale(1); }
   .tut-gameover-overlay{
     position:absolute; inset:7px; border-radius:8px;
-    background:rgba(23,19,31,0.88);
+    background:var(--bg-deep);
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:4px; text-align:center; padding:8px;
   }
@@ -349,6 +349,8 @@
   .tut-gameover-overlay .tgo-owl svg{ width:100%; height:100%; display:block; }
   .tut-gameover-overlay .tgo-title{ font-family:'Fraunces', serif; font-style:italic; font-weight:600; font-size:0.95rem; color:var(--ink); }
   .tut-gameover-overlay .tgo-sub{ font-size:0.62rem; color:var(--ink-dim); letter-spacing:0.02em; }
+  .tut-gameover-overlay .tgo-hearts{ margin-top:2px; font-size:0.85rem; letter-spacing:3px; color:var(--miss); }
+  .tut-gameover-overlay .tgo-hearts .lost{ opacity:0.25; filter:grayscale(1); }
   .tutorial-card p{ min-height:58px; display:flex; align-items:center; justify-content:center; }
   .tut-dots{ display:flex; justify-content:center; gap:6px; margin:-4px 0 16px; }
   .tut-dots .dot{
@@ -2888,7 +2890,13 @@ function tutBoardHTML(spec){
     </svg>`;
   }
   if(spec.gameOver){
-    html += `<div class="tut-gameover-overlay"><div class="tgo-owl">${OWL_SAD_SVG}</div><div class="tgo-title">Out of hearts</div><div class="tgo-sub">Game over</div></div>`;
+    let heartsHtml = '';
+    if(typeof spec.hearts === 'number'){
+      let h = '';
+      for(let i=0;i<3;i++) h += i < spec.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
+      heartsHtml = `<div class="tgo-hearts">${h}</div>`;
+    }
+    html += `<div class="tut-gameover-overlay"><div class="tgo-owl">${OWL_SAD_SVG}</div><div class="tgo-title">Out of hearts</div><div class="tgo-sub">Game over</div>${heartsHtml}</div>`;
   }
   return html;
 }
@@ -3062,8 +3070,7 @@ const NOLINES_TUTORIAL_PAGES = [
   {
     title: 'One more thing',
     text: "I designed this game, and even on 6\u00d76, No Lines is too much for me. It gave me a migraine in 20 minutes. Please don\u2019t do this.",
-    board: { owls: [[0,4],[1,1],[2,3],[3,0],[4,2]], gameOver: true },
-    hearts: 0,
+    board: { gameOver: true, hearts: 0 },
     icon: 'sad'
   }
 ];
@@ -3086,7 +3093,13 @@ function renderNolinesPage(){
   nolinesTitle.textContent = page.title;
   nolinesText.textContent = page.text;
   nolinesBoardBox.innerHTML = tutBoardHTML(page.board);
-  nolinesOwlIcon.innerHTML = page.icon === 'sad' ? OWL_SAD_SVG : (page.icon === 'happy' ? OWL_HAPPY_SVG : OWL_SVG);
+  if(nolinesPage === 0){
+    nolinesOwlIcon.innerHTML = page.icon === 'sad' ? OWL_SAD_SVG : (page.icon === 'happy' ? OWL_HAPPY_SVG : OWL_SVG);
+    nolinesOwlIcon.style.display = '';
+  } else {
+    nolinesOwlIcon.innerHTML = '';
+    nolinesOwlIcon.style.display = 'none';
+  }
   if(typeof page.hearts === 'number'){
     let h = '';
     for(let i=0;i<3;i++) h += i < page.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
