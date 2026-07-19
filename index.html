@@ -327,6 +327,7 @@
   .tut-owl-ic svg{ width:100%; height:100%; display:block; }
   .tutorial-card h2{ font-size:1.25rem; }
   .tut-board-box{
+    position:relative;
     width:150px; height:150px; margin:6px auto 14px;
     background:var(--bg-deep); border:1px solid var(--line); border-radius:14px;
     padding:7px; display:flex; align-items:center; justify-content:center;
@@ -348,6 +349,11 @@
   .tut-dots .dot.active{ background:var(--accent); transform:scale(1.3); }
   .tut-nav{ display:flex; gap:8px; }
   .tut-nav .btn.ghost{ visibility:hidden; }
+  .tut-photo-caption{
+    margin:-10px 0 12px; font-size:0.68rem; color:var(--ink-dim);
+    font-style:italic; opacity:0.75;
+  }
+  .tut-line-overlay{ position:absolute; inset:0; pointer-events:none; }
 
   .music-card{ max-width:320px; text-align:left; max-height:90vh; overflow-y:auto; }
   .music-card h2{
@@ -634,6 +640,23 @@
     <div class="tut-nav">
       <button class="btn ghost" id="tutPrevBtn">Back</button>
       <button class="btn primary" id="tutNextBtn">Next</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="nolinesOverlay">
+  <div class="card tutorial-card" id="nolinesCard">
+    <button type="button" class="tut-close-btn" id="nolinesCloseBtn" aria-label="Close">✕</button>
+    <div class="tut-owl-ic" id="nolinesOwlIcon"></div>
+    <h2 id="nolinesTitle"></h2>
+    <div class="tut-board-box" id="nolinesBoardBox"></div>
+    <div class="tut-hearts" id="nolinesHearts" style="display:none;"></div>
+    <div class="tut-photo-caption" id="nolinesCaption" style="display:none;"></div>
+    <p id="nolinesText"></p>
+    <div class="tut-dots" id="nolinesDots"></div>
+    <div class="tut-nav">
+      <button class="btn ghost" id="nolinesPrevBtn">Back</button>
+      <button class="btn primary" id="nolinesNextBtn">Next</button>
     </div>
   </div>
 </div>
@@ -2679,7 +2702,10 @@ document.getElementById('playAgainBtn').addEventListener('click', newGame);
 document.getElementById('retryBtn').addEventListener('click', ()=>{ Sound.button(); resetMarksOnly(); });
 document.getElementById('freshBtn').addEventListener('click', newGame);
 document.getElementById('sizeSelect').addEventListener('change', newGame);
-document.getElementById('difficultySelect').addEventListener('change', newGame);
+document.getElementById('difficultySelect').addEventListener('change', (e)=>{
+  if(e.target.value === 'nolines') showNolinesTutorial();
+  newGame();
+});
 let confirmAction = null; // 'reset' | 'new'
 const confirmOverlay = document.getElementById('confirmOverlay');
 const confirmText = document.getElementById('confirmText');
@@ -2815,6 +2841,17 @@ function tutBoardHTML(spec){
     }
   }
   html += `</div>`;
+  // optional dashed line drawn cell-center-to-cell-center, used to call out
+  // a full diagonal (no-lines mode illustration) rather than just the two
+  // endpoint cells
+  if(spec.line){
+    const [[r1,c1],[r2,c2]] = spec.line;
+    const x1 = (c1+0.5)/n*100, y1 = (r1+0.5)/n*100;
+    const x2 = (c2+0.5)/n*100, y2 = (r2+0.5)/n*100;
+    html += `<svg class="tut-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--miss)" stroke-width="2" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+  }
   return html;
 }
 
@@ -2954,6 +2991,112 @@ tutNextBtn.addEventListener('click', ()=>{
   Sound.button();
   if(tutPage === TUTORIAL_PAGES.length-1){ hideTutorial(); }
   else { goTutorialPage(tutPage+1); }
+});
+
+/* ---------- "no lines" mode: one rule page + four pages of the designer
+   quietly trying to talk you out of it ---------- */
+const NOLINES_TUTORIAL_PAGES = [
+  {
+    title: 'New rule: No Lines',
+    text: "On top of the normal rules, no two owls may share ANY diagonal — not just adjacent ones. If a line can be drawn corner to corner through two owls, that's a violation, no matter how far apart they are.",
+    board: { owls: [[0,0],[4,4]], errors: [[0,0],[4,4]], line: [[0,0],[4,4]] }
+  },
+  {
+    title: 'Hey.',
+    text: "Are you okay? You really don't have to do this. Impossible mode is hard enough on its own.",
+    board: { owls: [[0,4],[1,1],[2,3],[3,0],[4,2]] },
+    hearts: 2,
+    icon: 'sad',
+    caption: '(unrelated gameplay photo)'
+  },
+  {
+    title: 'For what it\u2019s worth',
+    text: "Designing this algorithm was a technical feat. It took millions of generated puzzles to get right, and it broke a couple of AIs that tried to comprehend it.",
+    board: { owls: [[2,2]], xs: [[0,0],[0,1],[0,2],[0,3],[1,0],[1,3],[1,4],[2,0],[2,4],[3,1],[3,3],[3,4],[4,0],[4,1],[4,3]] },
+    caption: '(unrelated gameplay photo)'
+  },
+  {
+    title: 'No shame in it',
+    text: "No one will be disappointed in you for turning back now. You're good at this game \u2014 we get it.",
+    board: { owls: [[0,2],[2,4],[4,1]], errors: [[0,2]] },
+    hearts: 1,
+    icon: 'sad',
+    caption: '(unrelated gameplay photo)'
+  },
+  {
+    title: 'One more thing',
+    text: "I designed this game, and even on 6\u00d76, No Lines is too much for me. It gave me a migraine in 20 minutes. Please don\u2019t do this.",
+    board: { owls: [[0,4],[1,1],[2,3],[3,0],[4,2]] },
+    hearts: 3,
+    icon: 'happy',
+    caption: '(me, having survived one round)'
+  }
+];
+
+const nolinesOverlay = document.getElementById('nolinesOverlay');
+const nolinesBoardBox = document.getElementById('nolinesBoardBox');
+const nolinesHearts = document.getElementById('nolinesHearts');
+const nolinesOwlIcon = document.getElementById('nolinesOwlIcon');
+const nolinesTitle = document.getElementById('nolinesTitle');
+const nolinesCaption = document.getElementById('nolinesCaption');
+const nolinesText = document.getElementById('nolinesText');
+const nolinesDots = document.getElementById('nolinesDots');
+const nolinesPrevBtn = document.getElementById('nolinesPrevBtn');
+const nolinesNextBtn = document.getElementById('nolinesNextBtn');
+
+let nolinesPage = 0;
+
+function renderNolinesPage(){
+  const page = NOLINES_TUTORIAL_PAGES[nolinesPage];
+  nolinesTitle.textContent = page.title;
+  nolinesText.textContent = page.text;
+  nolinesBoardBox.innerHTML = tutBoardHTML(page.board);
+  nolinesOwlIcon.innerHTML = page.icon === 'sad' ? OWL_SAD_SVG : (page.icon === 'happy' ? OWL_HAPPY_SVG : OWL_SVG);
+  if(typeof page.hearts === 'number'){
+    let h = '';
+    for(let i=0;i<3;i++) h += i < page.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
+    nolinesHearts.innerHTML = h;
+    nolinesHearts.style.display = '';
+  } else {
+    nolinesHearts.style.display = 'none';
+  }
+  if(page.caption){
+    nolinesCaption.textContent = page.caption;
+    nolinesCaption.style.display = '';
+  } else {
+    nolinesCaption.style.display = 'none';
+  }
+  nolinesDots.innerHTML = NOLINES_TUTORIAL_PAGES.map((_,i)=>
+    `<button type="button" class="dot${i===nolinesPage?' active':''}" data-i="${i}" aria-label="Go to page ${i+1}"></button>`
+  ).join('');
+  nolinesPrevBtn.classList.toggle('ghost', nolinesPage===0);
+  nolinesNextBtn.textContent = nolinesPage === NOLINES_TUTORIAL_PAGES.length-1 ? 'Fine, I understand' : 'Next';
+}
+
+function goNolinesPage(i){
+  nolinesPage = Math.max(0, Math.min(NOLINES_TUTORIAL_PAGES.length-1, i));
+  renderNolinesPage();
+}
+
+function showNolinesTutorial(){ nolinesPage = 0; nolinesOverlay.classList.add('show'); renderNolinesPage(); }
+function hideNolinesTutorial(){ nolinesOverlay.classList.remove('show'); }
+
+document.getElementById('nolinesCloseBtn').addEventListener('click', ()=>{ Sound.button(); hideNolinesTutorial(); });
+nolinesDots.addEventListener('click', (e)=>{
+  const dot = e.target.closest('.dot');
+  if(!dot) return;
+  Sound.button();
+  goNolinesPage(parseInt(dot.dataset.i, 10));
+});
+nolinesPrevBtn.addEventListener('click', ()=>{
+  if(nolinesPage===0) return;
+  Sound.button();
+  goNolinesPage(nolinesPage-1);
+});
+nolinesNextBtn.addEventListener('click', ()=>{
+  Sound.button();
+  if(nolinesPage === NOLINES_TUTORIAL_PAGES.length-1){ hideNolinesTutorial(); }
+  else { goNolinesPage(nolinesPage+1); }
 });
 
 const titleScreen = document.getElementById('titleScreen');
