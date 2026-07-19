@@ -522,51 +522,419 @@
   }
   @keyframes pulseTap{ 0%,100%{opacity:0.35;} 50%{opacity:1;} }
 
-  /* ===================== Tokyo Midnight Rain — main-screen backdrop =====================
-     Was a procedurally-generated, fully live SVG/CSS skyline (parallax layers, rain,
-     neon flicker, train, bird — all built once at load then animated forever via CSS
-     keyframes). Replaced with a single looping mp4 recorded from that same animation,
-     since the original never needed to be interactive and a rendered clip is far
-     cheaper to ship and paint than dozens of live SVG layers.
-     Still fills any viewport at any aspect ratio: object-fit:cover crops the video the
-     same way the old SVGs' preserveAspectRatio="xMidYMax slice" did (fill, anchor to
-     bottom-center, crop left/right on tall screens or top on wide ones). */
+  /* ===================== Tokyo Midnight Rain — main-screen backdrop ===================== */
+  /* Sits at z-index:-1 behind the game wrap. The title-screen paints its own opaque
+     background above this (z-index:100), so the cityscape is only ever visible once
+     the title screen fades away — no extra logic needed to gate it per-screen. */
   #cityBg{
     position:fixed; inset:0; z-index:-1;
-    width:100%; height:100%;
-    object-fit:cover; object-position:center bottom;
+    overflow:hidden; pointer-events:none;
     background:#0a0815;
-    pointer-events:none;
+    filter:saturate(0.68) brightness(0.86);
+  }
+  #cityBg .city-sky{
+    position:absolute; inset:-6%;
+    background:
+      radial-gradient(ellipse 70% 40% at 50% 118%, rgba(255,150,190,0.12), transparent 60%),
+      linear-gradient(to bottom, #090713 0%, #160f28 30%, #201938 56%, #2a2140 80%, #1e1830 100%);
+    animation: cbSkyDrift 100s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes cbSkyDrift{
+    0%{ transform:translate3d(0,0,0) scale(1.03); }
+    100%{ transform:translate3d(-1.6%,0.6%,0) scale(1.06); }
+  }
+  #cityBg .city-haze{
+    position:absolute; inset:-12%;
+    background:
+      radial-gradient(circle at 20% 72%, rgba(255,110,170,0.16), transparent 42%),
+      radial-gradient(circle at 80% 66%, rgba(90,200,255,0.14), transparent 44%),
+      radial-gradient(circle at 50% 88%, rgba(232,163,61,0.12), transparent 48%);
+    mix-blend-mode:screen;
+    animation: cbHazePulse 13s ease-in-out infinite alternate;
+    will-change: opacity;
+  }
+  @keyframes cbHazePulse{ 0%{opacity:0.5;} 100%{opacity:0.9;} }
+
+  #cityBg svg.city-layer{ position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible; }
+  #cityBg .city-far{ opacity:0.30; filter:blur(0.7px); }
+  #cityBg .city-mid{ opacity:0.52; filter:blur(0.2px); }
+  #cityBg .city-neon{ opacity:0.7; }
+  #cityBg .city-near{ opacity:0.62; }
+  /* Each layer's skyline is drawn twice side by side (tile A + tile B, the second
+     offset by exactly one viewBox width). The pair then scrolls left by that same
+     width and loops — a seamless, one-directional crawl instead of a back-and-forth
+     wobble, so it keeps revealing "new" city rather than reversing on itself.
+     Farther layers move slower than nearer ones for parallax depth. */
+  #cityBg .scroll-track{ will-change:transform; }
+  #cityBg .city-far .scroll-track{ animation:cbScroll 960s linear infinite; }
+  #cityBg .city-mid .scroll-track{ animation:cbScroll 660s linear infinite; }
+  #cityBg .city-neon .scroll-track{ animation:cbScroll 660s linear infinite; }
+  #cityBg .city-near .scroll-track{ animation:cbScroll 450s linear infinite; }
+  @keyframes cbScroll{ 0%{ transform:translateX(0); } 100%{ transform:translateX(-1600px); } }
+
+  #cityBg .win{ animation:cbWinFlicker var(--fdur,6s) ease-in-out var(--d,0s) infinite; }
+  @keyframes cbWinFlicker{
+    0%,40%,100%{ opacity:var(--wo,0.8); }
+    46%{ opacity:0.12; }
+    50%{ opacity:var(--wo,0.8); }
+    72%{ opacity:0.5; }
+  }
+  #cityBg .neon-sign{ animation:cbNeonPulse var(--ndur,4.5s) ease-in-out var(--nd,0s) infinite; }
+  @keyframes cbNeonPulse{
+    0%,100%{ opacity:0.5; filter:drop-shadow(0 0 5px currentColor); }
+    50%{ opacity:1; filter:drop-shadow(0 0 12px currentColor) drop-shadow(0 0 24px currentColor); }
+  }
+  #cityBg .beacon{ animation:cbBeacon 2.4s steps(1) infinite; }
+  @keyframes cbBeacon{ 0%,49%{opacity:1;} 50%,100%{opacity:0.08;} }
+  #cityBg .steam{ animation:cbSteam 7s ease-in infinite; transform-origin:50% 100%; }
+  @keyframes cbSteam{
+    0%{ transform:translateY(0) scale(1); opacity:0; }
+    15%{ opacity:0.35; }
+    100%{ transform:translateY(-70px) scale(1.6); opacity:0; }
+  }
+  #cityBg .train{ animation:cbTrain 36s linear infinite; will-change:transform; }
+  @keyframes cbTrain{
+    0%{ transform:translateX(-20%); opacity:0; }
+    4%{ opacity:0.9; }
+    45%{ opacity:0.9; }
+    50%{ transform:translateX(120%); opacity:0; }
+    100%{ transform:translateX(120%); opacity:0; }
+  }
+  #cityBg .bird{ animation:cbBird 28s linear infinite; will-change:transform; }
+  @keyframes cbBird{
+    0%{ transform:translate(-10%,0); opacity:0; }
+    6%{ opacity:0.45; }
+    50%{ transform:translate(65%,-4%); opacity:0.45; }
+    94%{ opacity:0; }
+    100%{ transform:translate(120%,-6%); opacity:0; }
+  }
+
+  /* Rain is built from individual falling streak-lines (see buildRain() in the
+     script below), not a tiled repeating pattern — a uniform hatch reads as
+     wallpaper, not weather. Each <line> has its own length/speed/opacity and
+     a gradient stroke that fades top and bottom for a soft comet-tail. */
+  #cityBg svg.city-rain-layer{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  #cityBg .city-rain-back{ opacity:0.32; }
+  #cityBg .city-rain-front{ opacity:0.52; filter:blur(0.6px); }
+  #cityBg .drop{
+    animation-name:cbDropFall; animation-timing-function:linear; animation-iteration-count:infinite;
+    will-change:transform;
+  }
+  @keyframes cbDropFall{
+    0%{ transform:translate(0,0); }
+    100%{ transform:translate(var(--dx,0px), 1150px); }
+  }
+
+
+  #cityBg .city-puddle{ position:absolute; left:0; right:0; bottom:0; height:14%; overflow:hidden; }
+  #cityBg .city-puddle .blob{ position:absolute; bottom:-20%; height:140%; filter:blur(14px); mix-blend-mode:screen; animation:cbPuddle 6s ease-in-out infinite alternate; }
+  @keyframes cbPuddle{ 0%{opacity:0.2;} 100%{opacity:0.45;} }
+
+  #cityBg .city-vignette{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse at 50% 42%, transparent 42%, rgba(5,4,10,0.6) 100%),
+      linear-gradient(to bottom, rgba(5,4,10,0.3), transparent 22%, transparent 68%, rgba(5,4,10,0.42));
   }
   @media (prefers-reduced-motion: reduce){
-    #cityBg{ animation:none; }
+    #cityBg *{ animation:none !important; }
   }
 </style>
 </head>
 <body>
 
-<video id="cityBg" aria-hidden="true" autoplay muted loop playsinline preload="auto" poster="city-bg-poster.jpg">
-  <source src="city-bg.mp4" type="video/mp4">
-  <source src="city-bg.webm" type="video/webm">
-</video>
+<div id="cityBg" aria-hidden="true">
+  <div class="city-sky"></div>
+  <div class="city-haze"></div>
+
+  <svg class="city-layer city-far" id="cityFar" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice">
+    <g class="scroll-track">
+      <g class="tile" id="cityFarTileA"></g>
+      <g class="tile" id="cityFarTileB" transform="translate(1600,0)"></g>
+    </g>
+  </svg>
+  <svg class="city-layer city-mid" id="cityMid" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice">
+    <g class="scroll-track">
+      <g class="tile" id="cityMidTileA"></g>
+      <g class="tile" id="cityMidTileB" transform="translate(1600,0)"></g>
+    </g>
+  </svg>
+
+  <svg class="city-layer city-neon" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice">
+    <g class="scroll-track">
+      <g class="tile" id="cityNeonTileA">
+        <g class="neon-sign" style="color:#ff5fa8; --nd:0s; --ndur:4.2s">
+          <rect x="140" y="360" width="14" height="120" rx="4" fill="currentColor"/>
+          <rect x="140" y="360" width="60" height="14" rx="4" fill="currentColor"/>
+          <rect x="186" y="360" width="14" height="70" rx="4" fill="currentColor"/>
+        </g>
+        <g class="neon-sign" style="color:#4fd6ff; --nd:1.4s; --ndur:5.1s">
+          <rect x="330" y="410" width="70" height="12" rx="4" fill="currentColor"/>
+          <rect x="330" y="432" width="46" height="12" rx="4" fill="currentColor"/>
+          <rect x="330" y="454" width="58" height="12" rx="4" fill="currentColor"/>
+        </g>
+        <g class="neon-sign" style="color:#ff5fa8; --nd:0.9s; --ndur:5.6s">
+          <rect x="1210" y="420" width="90" height="12" rx="4" fill="currentColor"/>
+          <rect x="1230" y="442" width="50" height="12" rx="4" fill="currentColor"/>
+        </g>
+        <g class="neon-sign" style="color:#4fd6ff; --nd:1.8s; --ndur:4.1s">
+          <rect x="1420" y="340" width="12" height="130" rx="4" fill="currentColor"/>
+          <rect x="1442" y="340" width="12" height="90" rx="4" fill="currentColor"/>
+        </g>
+      </g>
+      <g class="tile" id="cityNeonTileB" transform="translate(1600,0)"></g>
+    </g>
+  </svg>
+
+  <svg class="city-layer city-near" id="cityNear" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice">
+    <g class="scroll-track">
+      <g class="tile" id="cityNearTileA"></g>
+      <g class="tile" id="cityNearTileB" transform="translate(1600,0)"></g>
+    </g>
+  </svg>
+
+  <svg class="city-rain-layer city-rain-back" id="cityRainBack" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"></svg>
+  <svg class="city-rain-layer city-rain-front" id="cityRainFront" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"></svg>
+
+  <div class="city-puddle">
+    <div class="blob" style="left:8%; width:14%; background:radial-gradient(closest-side,#ff6fb0,transparent 70%);"></div>
+    <div class="blob" style="left:36%; width:18%; background:radial-gradient(closest-side,#5fd8ff,transparent 70%); animation-delay:1.4s;"></div>
+    <div class="blob" style="left:64%; width:16%; background:radial-gradient(closest-side,#e8a33d,transparent 70%); animation-delay:2.8s;"></div>
+    <div class="blob" style="left:85%; width:12%; background:radial-gradient(closest-side,#9d6bff,transparent 70%); animation-delay:0.6s;"></div>
+  </div>
+
+  <div class="city-vignette"></div>
+</div>
+
 <script>
-// Respect reduced-motion, and don't fight browsers that block autoplay.
+/* ---------------------------------------------------------------------------
+   Procedural Tokyo-rain skyline for the main-screen backdrop.
+   Runs once at load: builds SVG geometry (crisp at any resolution/aspect
+   ratio, since it's all vector + viewBox scaling), then hands off entirely
+   to CSS keyframe animation for the actual motion (parallax drift, window
+   flicker, neon pulse, rain, train pass). No per-frame JS after this runs,
+   so it's essentially free at runtime regardless of screen size.
+--------------------------------------------------------------------------- */
 (function(){
-  var v = document.getElementById('cityBg');
-  if(!v) return;
-  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(reduceMotion){
-    v.pause();
-    v.removeAttribute('autoplay');
-  } else {
-    var p = v.play();
-    if(p && p.catch) p.catch(function(){ /* autoplay blocked; poster frame remains visible */ });
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  const VBW = 1600, VBH = 900;
+  function rnd(a,b){ return Math.random()*(b-a)+a; }
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+  function make(tag, attrs){
+    const e = document.createElementNS(SVGNS, tag);
+    for(const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
   }
+
+  /* ---------- far layer: distant jagged skyline silhouette ---------- */
+  (function buildFar(){
+    const svg = document.getElementById('cityFarTileA');
+    if(!svg) return;
+    const pts = [`0,${VBH}`];
+    let x = 0;
+    while(x < VBW){
+      const w = rnd(35,95);
+      const h = rnd(70,230);
+      const topY = VBH - 130 - h*0.5;
+      pts.push(`${x.toFixed(1)},${topY.toFixed(1)}`);
+      pts.push(`${(x+w).toFixed(1)},${topY.toFixed(1)}`);
+      x += w + rnd(1,8);
+    }
+    pts.push(`${VBW},${VBH}`);
+    svg.appendChild(make('polygon', { points: pts.join(' '), fill:'#2b2448' }));
+  })();
+
+  /* ---------- mid layer: lit-window buildings ---------- */
+  (function buildMid(){
+    const svg = document.getElementById('cityMidTileA');
+    if(!svg) return;
+    const litColors = ['#ffdca0','#cfe8ff','#ffe9c2','#ffd9ec'];
+    const bodyColors = ['#332a52','#3a3160','#2e2748'];
+    let x = 0;
+    while(x < VBW){
+      const w = rnd(65,155);
+      const h = rnd(170,540);
+      const y = VBH - h;
+      svg.appendChild(make('rect', { x, y, width:w, height:h, fill: pick(bodyColors) }));
+      if(Math.random() < 0.35){
+        svg.appendChild(make('rect', { x, y: y-14, width:w, height:14, fill:'#241d3d' }));
+      }
+      const cols = Math.max(2, Math.floor(w/22));
+      const rows = Math.max(3, Math.floor(h/26));
+      const cellW = w/cols, cellH = h/rows;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<cols;c++){
+          if(Math.random() < 0.34) continue;
+          const wx = x + c*cellW + cellW*0.25;
+          const wy = y + r*cellH + cellH*0.22;
+          const lit = Math.random() < 0.72;
+          const baseOpacity = lit ? rnd(0.45,0.95) : 0.1;
+          const rect = make('rect', {
+            x:wx, y:wy, width:cellW*0.5, height:cellH*0.56, rx:1,
+            fill: pick(litColors), opacity:baseOpacity
+          });
+          if(lit && Math.random() < 0.16){
+            rect.setAttribute('class','win');
+            rect.style.setProperty('--d', rnd(0,10).toFixed(2)+'s');
+            rect.style.setProperty('--fdur', rnd(4,9).toFixed(2)+'s');
+            rect.style.setProperty('--wo', baseOpacity.toFixed(2));
+          }
+          svg.appendChild(rect);
+        }
+      }
+      x += w + rnd(3,12);
+    }
+  })();
+
+  /* ---------- near layer: closer dark silhouettes + rooftop life ---------- */
+  (function buildNear(){
+    const svg = document.getElementById('cityNearTileA');
+    if(!svg) return;
+    let x = -60;
+    while(x < VBW+60){
+      const w = rnd(140,340);
+      const h = rnd(240,540);
+      const y = VBH - h;
+      svg.appendChild(make('rect', { x, y, width:w, height:h, fill:'#140f24' }));
+      if(Math.random() < 0.55){
+        const cols = Math.floor(w/42);
+        for(let c=0;c<cols;c++){
+          if(Math.random() < 0.55) continue;
+          svg.appendChild(make('rect', {
+            x: x+18+c*42, y: y+rnd(18,h-40), width:13, height:17,
+            fill:'#4a3a24', opacity: rnd(0.35,0.7)
+          }));
+        }
+      }
+      x += w + rnd(-30,12);
+    }
+
+    /* rooftop props sit in their own group, appended last so they render on
+       top of the buildings without needing an id (this tile gets cloned
+       whole into tile B, and duplicate ids in the DOM are best avoided). */
+    const props = make('g', {});
+    svg.appendChild(props);
+
+    /* water tower */
+    const towerX = rnd(180, VBW-180);
+    const towerY = VBH - rnd(300,460);
+    const wt = make('g', {});
+    wt.innerHTML = `
+      <rect x="${towerX-34}" y="${towerY}" width="68" height="52" rx="6" fill="#1b1530"/>
+      <polygon points="${towerX-40},${towerY} ${towerX+40},${towerY} ${towerX+24},${towerY-26} ${towerX-24},${towerY-26}" fill="#241c3c"/>
+      <rect x="${towerX-6}" y="${towerY+52}" width="4" height="30" fill="#1b1530"/>
+      <rect x="${towerX+18}" y="${towerY+52}" width="4" height="30" fill="#1b1530"/>
+      <rect x="${towerX-24}" y="${towerY+52}" width="4" height="30" fill="#1b1530"/>`;
+    props.appendChild(wt);
+
+    /* antenna with blinking beacon */
+    const antX = rnd(220, VBW-220);
+    const antY = VBH - rnd(360,520);
+    const ant = make('g', {});
+    ant.innerHTML = `
+      <line x1="${antX}" y1="${antY}" x2="${antX}" y2="${antY-70}" stroke="#1b1530" stroke-width="3"/>
+      <line x1="${antX-14}" y1="${antY-40}" x2="${antX+14}" y2="${antY-40}" stroke="#1b1530" stroke-width="2"/>
+      <circle class="beacon" cx="${antX}" cy="${antY-70}" r="4" fill="#ff5566"/>`;
+    props.appendChild(ant);
+
+    /* steam vents rising from a rooftop */
+    for(let i=0;i<3;i++){
+      const sx = rnd(260, VBW-260);
+      const sy = VBH - rnd(230,380);
+      const steam = make('ellipse', {
+        cx: sx, cy: sy, rx:10, ry:16, fill:'rgba(220,220,235,0.4)'
+      });
+      steam.setAttribute('class','steam');
+      steam.style.animationDelay = rnd(0,7).toFixed(2)+'s';
+      props.appendChild(steam);
+    }
+
+    /* elevated train that occasionally slides across */
+    const trainY = VBH - rnd(120,220);
+    const train = make('g', { class:'train' });
+    let cars = '';
+    for(let i=0;i<4;i++){
+      const cx = i*120;
+      cars += `<rect x="${cx}" y="${trainY}" width="100" height="30" rx="4" fill="#241c3c"/>
+        <rect x="${cx+8}" y="${trainY+6}" width="14" height="12" fill="#ffdca0" opacity="0.8"/>
+        <rect x="${cx+30}" y="${trainY+6}" width="14" height="12" fill="#cfe8ff" opacity="0.7"/>
+        <rect x="${cx+52}" y="${trainY+6}" width="14" height="12" fill="#ffdca0" opacity="0.75"/>
+        <rect x="${cx+74}" y="${trainY+6}" width="14" height="12" fill="#cfe8ff" opacity="0.6"/>`;
+    }
+    train.innerHTML = `<line x1="-40" y1="${trainY+32}" x2="1640" y2="${trainY+32}" stroke="#1b1530" stroke-width="4"/>${cars}`;
+    props.appendChild(train);
+
+    /* a couple of birds drifting past */
+    for(let i=0;i<2;i++){
+      const by = rnd(120,320);
+      const bird = make('path', {
+        class:'bird', d:'M0,0 q8,-10 16,0 q8,-10 16,0',
+        fill:'none', stroke:'#c9c2df', 'stroke-width':2, 'stroke-linecap':'round'
+      });
+      bird.style.transformOrigin = `0px ${by}px`;
+      bird.setAttribute('transform', `translate(0,${by})`);
+      bird.style.animationDelay = rnd(0,20).toFixed(2)+'s';
+      props.appendChild(bird);
+    }
+  })();
+
+  /* ---------- mirror each generated tile into its scroll partner ---------- */
+  ['cityFar','cityMid','cityNeon','cityNear'].forEach(function(base){
+    const a = document.getElementById(base+'TileA');
+    const b = document.getElementById(base+'TileB');
+    if(a && b) b.innerHTML = a.innerHTML;
+  });
+
+  /* ---------- rain: individual falling streak-lines, not a tiled pattern ---------- */
+  function buildRain(svg, count, o){
+    if(!svg) return;
+    const angleRad = o.angleDeg * Math.PI/180;
+    const totalDx = Math.sin(angleRad) * o.travel;
+    for(let i=0;i<count;i++){
+      const len = rnd(o.lenMin, o.lenMax);
+      const x1 = rnd(-100, VBW+100);
+      const y1 = rnd(-320, -10);
+      const dx = Math.sin(angleRad) * len;
+      const dy = Math.cos(angleRad) * len;
+      const line = make('line', {
+        x1:x1.toFixed(1), y1:y1.toFixed(1), x2:(x1+dx).toFixed(1), y2:(y1+dy).toFixed(1),
+        stroke:`url(#${o.gradId})`,
+        'stroke-width': rnd(o.wMin,o.wMax).toFixed(2),
+        'stroke-linecap':'round',
+        opacity: rnd(o.opMin,o.opMax).toFixed(2)
+      });
+      line.setAttribute('class','drop');
+      const dur = rnd(o.durMin, o.durMax);
+      line.style.setProperty('--dx', totalDx.toFixed(1)+'px');
+      line.style.animationDuration = dur.toFixed(2)+'s';
+      line.style.animationDelay = (-rnd(0,dur)).toFixed(2)+'s'; // negative delay: starts already mid-fall
+      svg.appendChild(line);
+    }
+  }
+  buildRain(document.getElementById('cityRainBack'), 130, {
+    lenMin:34, lenMax:68, wMin:1, wMax:1.6, opMin:0.16, opMax:0.34,
+    angleDeg:9, durMin:1.3, durMax:2.1, travel:1150, gradId:'rainGradBack'
+  });
+  buildRain(document.getElementById('cityRainFront'), 85, {
+    lenMin:58, lenMax:118, wMin:1.6, wMax:2.8, opMin:0.26, opMax:0.5,
+    angleDeg:14, durMin:0.7, durMax:1.25, travel:1150, gradId:'rainGradFront'
+  });
 })();
 </script>
 
 <svg id="sharedIconDefs" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
 <defs>
+  <linearGradient id="rainGradBack" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#bcd8ff" stop-opacity="0"/>
+    <stop offset="0.7" stop-color="#bcd8ff" stop-opacity="0.55"/>
+    <stop offset="1" stop-color="#eaf4ff" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="rainGradFront" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#d7ecff" stop-opacity="0"/>
+    <stop offset="0.65" stop-color="#d7ecff" stop-opacity="0.65"/>
+    <stop offset="1" stop-color="#f2f9ff" stop-opacity="0"/>
+  </linearGradient>
   <radialGradient id="owlBodyGrad" cx="38%" cy="26%" r="78%">
     <stop offset="0%" stop-color="#fbe3ac"/>
     <stop offset="45%" stop-color="#eeb15c"/>
