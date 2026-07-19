@@ -2040,6 +2040,7 @@ let mode = 'x'; // 'owl' | 'x'
 let xGlyph = 'x'; // 'x' | 'q' — cosmetic skin for x-mode marks, toggled by re-tapping the mode button
 let dragging = false;
 let dragAction = null; // 'add' | 'remove'
+let dragGlyph = null; // glyph ('x'|'q') a 'remove' drag stroke is restricted to
 let hintUsed = false;
 let currentPuzzleCode = '';
 let currentDifficulty = 'easy';
@@ -2315,6 +2316,7 @@ function onGridPointerDown(e){
   if(given[r][c]){ render(); return; }
   const action = mark[r][c]==='x' ? 'remove' : 'add';
   dragAction = action;
+  dragGlyph = action==='remove' ? markGlyph[r][c] : xGlyph;
   dragging = true;
   Sound.resetSlide();
   paintX(r,c,action);
@@ -2326,12 +2328,14 @@ function onDocPointerMove(e){
   const cell = cellFromPoint(e.clientX, e.clientY);
   if(!cell) return;
   if(mark[cell.r][cell.c]==='owl') return;
+  if(dragAction==='remove' && mark[cell.r][cell.c]==='x' && markGlyph[cell.r][cell.c]!==dragGlyph) return;
   paintX(cell.r, cell.c, dragAction);
 }
 
 function onDocPointerUp(){
   dragging = false;
   dragAction = null;
+  dragGlyph = null;
 }
 
 function render(){
