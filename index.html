@@ -566,10 +566,13 @@
      wobble, so it keeps revealing "new" city rather than reversing on itself.
      Farther layers move slower than nearer ones for parallax depth. */
   #cityBg .scroll-track{ will-change:transform; }
-  #cityBg .city-far .scroll-track{ animation:cbScroll 960s linear infinite; }
-  #cityBg .city-mid .scroll-track{ animation:cbScroll 660s linear infinite; }
-  #cityBg .city-neon .scroll-track{ animation:cbScroll 660s linear infinite; }
-  #cityBg .city-near .scroll-track{ animation:cbScroll 450s linear infinite; }
+  /* steps(N) caps these at 30fps (N = duration_seconds * 30) instead of updating
+     every compositor frame, so 120Hz displays don't do 2x the paint work for
+     motion this slow — the eye can't tell the difference at this speed. */
+  #cityBg .city-far .scroll-track{ animation:cbScroll 960s steps(28800) infinite; }
+  #cityBg .city-mid .scroll-track{ animation:cbScroll 660s steps(19800) infinite; }
+  #cityBg .city-neon .scroll-track{ animation:cbScroll 660s steps(19800) infinite; }
+  #cityBg .city-near .scroll-track{ animation:cbScroll 450s steps(13500) infinite; }
   @keyframes cbScroll{ 0%{ transform:translateX(0); } 100%{ transform:translateX(-1600px); } }
 
   #cityBg .win{ animation:cbWinFlicker var(--fdur,6s) ease-in-out var(--d,0s) infinite; }
@@ -1229,8 +1232,6 @@ document.addEventListener('selectstart', function(e){ e.preventDefault(); });
   // never survives past the user's very next tap.
   document.addEventListener('touchstart', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
   document.addEventListener('pointerdown', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
-  // Polling fallback in case a browser doesn't fire the events above for zoom changes
-  setInterval(function(){ if(isZoomed()) forceResetZoom(); }, 150);
 })();
 
 /* ---------- shared audio core ---------- */
