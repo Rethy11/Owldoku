@@ -1,0 +1,56 @@
+<!--
+  Owldoku — sad owl sprite (used for the lose overlay and some tutorial
+  pages).
+
+  Fully self-contained: all gradients and filters this sprite needs are
+  defined right here in its own <defs>. It does not rely on anything from
+  the page that embeds it, so it can be swapped for a different file
+  without checking what else that might affect.
+-->
+<svg viewBox="-4 -4 108 108" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="owlBodyGradSad" cx="38%" cy="26%" r="78%">
+      <stop offset="0%" stop-color="#d9cba7"/>
+      <stop offset="45%" stop-color="#b3915c"/>
+      <stop offset="100%" stop-color="#87602f"/>
+    </radialGradient>
+    <radialGradient id="owlFaceGrad" cx="50%" cy="34%" r="72%">
+      <stop offset="0%" stop-color="#fff8ea"/>
+      <stop offset="60%" stop-color="#f7d693"/>
+      <stop offset="100%" stop-color="#eab55c"/>
+    </radialGradient>
+    <linearGradient id="owlWingGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d9973f"/>
+      <stop offset="100%" stop-color="#a8641f"/>
+    </linearGradient>
+    <linearGradient id="owlTuftGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c68b3c"/>
+      <stop offset="100%" stop-color="#8a5a22"/>
+    </linearGradient>
+    <linearGradient id="owlBeakGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f6c877"/>
+      <stop offset="100%" stop-color="#d17a3b"/>
+    </linearGradient>
+    <filter id="owlSoftShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.6"/>
+    </filter>
+  </defs>
+  <g transform="rotate(-6 50 50)">
+    <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.25" filter="url(#owlSoftShadow)"/>
+    <path d="M22,40 C10,45 8,65 18,82 C22,84 26,80 26,65 C26,55 25,46 22,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1" opacity="0.85"/>
+    <path d="M78,40 C90,45 92,65 82,82 C78,84 74,80 74,65 C74,55 75,46 78,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1" opacity="0.85"/>
+    <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGradSad)" stroke="#4a2f14" stroke-width="1.1"/>
+    <path d="M14,24 C8,30 4,40 10,46 C15,50 22,46 22,36 C22,30 20,26 14,24 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <path d="M27,22 C22,28 20,36 25,42 C29,46 34,42 33,34 C32,29 30,25 27,22 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <path d="M86,24 C92,30 96,40 90,46 C85,50 78,46 78,36 C78,30 80,26 86,24 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <path d="M73,22 C78,28 80,36 75,42 C71,46 66,42 67,34 C68,29 70,25 73,22 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
+    <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.75"/>
+    <path d="M30,42 L42,54 M42,42 L30,54" stroke="#2a1c10" stroke-width="2.4" stroke-linecap="round"/>
+    <path d="M58,42 L70,54 M70,42 L58,54" stroke="#2a1c10" stroke-width="2.4" stroke-linecap="round"/>
+    <ellipse cx="50" cy="63" rx="5" ry="6" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
+    <ellipse cx="50" cy="65" rx="2.6" ry="3" fill="#7a3a18" opacity="0.6"/>
+    <path d="M18.0,6.6 L18.7,8.3 L20.4,9.0 L18.7,9.7 L18.0,11.4 L17.3,9.7 L15.6,9.0 L17.3,8.3 Z" fill="#f4eee0" opacity="0.6"/>
+    <path d="M83.0,10.0 L83.6,11.4 L85.0,12.0 L83.6,12.6 L83.0,14.0 L82.4,12.6 L81.0,12.0 L82.4,11.4 Z" fill="#f4eee0" opacity="0.5"/>
+    <path d="M50.0,1.0 L50.5,2.3 L51.8,2.8 L50.5,3.3 L50.0,4.6 L49.5,3.3 L48.2,2.8 L49.5,2.3 Z" fill="#f4eee0" opacity="0.45"/>
+  </g>
+</svg>
