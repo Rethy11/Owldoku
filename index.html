@@ -12,6 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
+  /* ===================== design tokens ===================== */
   :root{
     --bg: #201a2c;
     --bg-deep: #17131f;
@@ -26,6 +27,9 @@
     --miss: #e0685a;
     --good: #7fb59e;
   }
+  /* ===================== global resets — this is a fullscreen app shell,
+     not a scrolling page, so touch/scroll/zoom/selection are locked down
+     everywhere by default ===================== */
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:none;}
   html{
     height:100%;
@@ -56,6 +60,8 @@
     justify-content:center;
     padding:0;
   }
+  /* ===================== app shell & header (title, stats, size/difficulty
+     pickers) ===================== */
   .wrap{
     width:100%;
     height:100%;
@@ -140,6 +146,8 @@
     padding:6px 8px; border-radius:10px;
   }
 
+  /* ===================== game board: grid, cells, owl/X glyphs, conflict
+     flash ===================== */
   .board{
     position:relative;
     opacity:1;
@@ -234,6 +242,8 @@
     opacity: 0;
   }
 
+  /* ===================== conflict tooltip (briefly shown over a cell when
+     a move is rejected) ===================== */
   .tip-popup{
     position:absolute; top:50%; left:50%; z-index:6;
     transform:translate(-50%,-50%) scale(0.9);
@@ -248,6 +258,8 @@
   }
   .tip-popup.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }
 
+  /* ===================== mode bar (owl / X-mark placement) & toolbar
+     (hint / clear / new) buttons ===================== */
   .modebar{ display:flex; gap:8px; margin-top:min(0.3vh,3px); flex:0 0 auto; }
   .mode-btn{
     flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
@@ -282,6 +294,7 @@
   .btn.locked{ opacity:0.4; cursor:not-allowed; }
   .btn.locked:hover{ background:var(--surface); border-color:var(--line); }
 
+  /* ===================== legend strip under the toolbar ===================== */
   .legend{
     display:flex; align-items:center; justify-content:center; gap:14px;
     margin-top:8px; font-size:0.72rem; color:var(--ink-dim);
@@ -291,6 +304,9 @@
   .legend .swatch{ width:12px; height:12px; border-radius:3px; }
   .legend .swatch.owl{ background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:9px; }
 
+  /* ===================== modal overlays — shared backdrop + card chrome,
+     reused by win, lose, tutorial, no-lines-mode-help, music, and confirm
+     dialogs ===================== */
   .overlay{
     position:fixed; inset:0; background:rgba(23,19,31,0.86);
     display:flex; align-items:center; justify-content:center; z-index:10; padding:20px;
@@ -319,6 +335,8 @@
   .card p{ color:var(--ink-dim); font-size:0.86rem; margin:0 0 16px; }
   .card.sad h2{ color:var(--miss); }
   .tutorial-card{ max-width:320px; }
+  /* Generic circular close (×) button, positioned top-right of a .card.
+     Despite the tut- name it's also used on the win/lose result cards. */
   .tut-close-btn{
     position:absolute; top:10px; right:10px;
     width:26px; height:26px; border-radius:50%;
@@ -329,6 +347,7 @@
     transition:border-color 0.15s ease, color 0.15s ease;
   }
   .tut-close-btn:hover{ border-color:var(--line-strong); color:var(--ink); }
+  /* ---------- tutorial card: mini board preview, dots nav, spotlight ---------- */
   .tut-owl-ic{ width:56px; height:56px; margin:0 auto 6px; }
   .tutorial-card h2{ font-size:1.25rem; }
   .tut-board-box{
@@ -371,6 +390,7 @@
   }
   .tut-line-overlay{ position:absolute; inset:0; pointer-events:none; }
 
+  /* ===================== music panel ===================== */
   .music-card{ max-width:320px; text-align:left; max-height:90vh; overflow-y:auto; }
   .music-card h2{
     text-align:center; font-family:'Fraunces', serif; font-style:italic;
@@ -423,6 +443,7 @@
     padding:14px 10px; line-height:1.4;
   }
 
+  /* ===================== win overlay: card pop-in + confetti burst ===================== */
   #winOverlay.show .card{ animation: winPop 0.55s cubic-bezier(0.22,1.1,0.32,1.2); }
   @keyframes winPop{
     0%{ transform:scale(0.7) rotate(-3deg); opacity:0; }
@@ -454,6 +475,7 @@
     100%{ transform:translateY(105vh) translateX(var(--drift,0px)) rotate(var(--rotate,180deg)); opacity:0.1; }
   }
 
+  /* ===================== footer & ad banner ===================== */
   footer{
     text-align:center; color:var(--ink-dim); font-size:0.58rem;
     margin-top:min(0.3vh,3px); letter-spacing:0.02em; line-height:1.2;
@@ -487,6 +509,8 @@
 
   @media (prefers-reduced-motion: reduce){ .eyes span{ animation:none !important; } }
 
+  /* ===================== title screen (pre-game splash; tap to reveal
+     the game underneath) ===================== */
   .title-screen{
     position:fixed; inset:0; z-index:100;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -2441,6 +2465,11 @@ function b64urlDecode(str){
 const DIFF_CODE = { easy:'e', medium:'m', hard:'h', impossible:'i', nolines:'x' };
 const DIFF_FROM_CODE = { e:'easy', m:'medium', h:'hard', i:'impossible', x:'nolines' };
 
+// Encodes an exact board into a compact, URL-safe string: every field is
+// base36 (so single digits/letters cover 0-35, enough for any board size
+// this game supports) and packed as `N|regions|clues|solution|difficulty`
+// before base64url-encoding the whole thing. This is what lets a shared
+// link reproduce the exact same puzzle rather than just the same settings.
 function packPuzzle(N, regionOf, clues, perm, difficulty){
   let regionStr = '';
   for(let r=0;r<N;r++) for(let c=0;c<N;c++) regionStr += regionOf[r][c].toString(36);
@@ -2477,6 +2506,9 @@ function unpackPuzzle(code){
 
 /* ---------- game state ---------- */
 const REGION_COLORS_CACHE = {};
+// Evenly-spaced hues around the color wheel, one per region — deterministic
+// and stable for a given N, so the same puzzle always looks the same.
+// Cached since N (and therefore this palette) doesn't change mid-puzzle.
 function regionColors(N){
   if(REGION_COLORS_CACHE[N]) return REGION_COLORS_CACHE[N];
   const cols = [];
@@ -2488,9 +2520,7 @@ function regionColors(N){
   return cols;
 }
 
-/* ---------- hand-drawn owl sprites (neutral / happy / dazed) ---------- */
-/* All three share the gradient + filter defs declared once near <body>. */
-
+/* ---------- owl sprites (neutral / happy / dazed) ---------- */
 // Owl artwork lives in individual, fully self-contained .svg files under
 // /sprites (owl.svg, owl-happy.svg, owl-sad.svg) — each one bundles its own
 // gradients/filters and depends on nothing else on the page. They're
@@ -2505,6 +2535,8 @@ function owlIconHTML(kind, extraClass){
   return `<img class="${cls}" src="${src}" alt="" draggable="false" onerror="this.style.visibility='hidden'">`;
 }
 
+/* ---------- core game state — one puzzle's worth, replaced wholesale by
+   newGame()/startPuzzle() rather than being reset field-by-field ---------- */
 let N = 6;
 let regionOf = [];
 let solutionPerm = [];
@@ -2624,6 +2656,9 @@ function buildGridDOM(){
   sizeBoard();
 }
 
+// Draws a thicker border only on edges where the neighboring cell belongs to
+// a different region (plus the outer edge of the whole board), so region
+// boundaries read clearly against the plain 2px grid gap everywhere else.
 function applyRegionBorders(){
   const el = boardEl();
   const cells = el.children;
@@ -2651,6 +2686,12 @@ function allOwls(){
   return out;
 }
 
+/* ---------- owl placement rules & conflict feedback ---------- */
+// The core Owldoku rule set: no two owls may share a row, column, or region,
+// or sit in touching cells (including diagonally adjacent) — regardless of
+// difficulty. 'nolines' mode adds one more rule on top: owls also can't
+// share any full diagonal line across the board, not just be diagonally
+// touching.
 function owlConflicts(r,c, owls){
   const conflicts = [];
   const noLines = currentDifficulty === 'nolines';
@@ -2714,6 +2755,11 @@ function clearConflictTimers(){
   if(conflictTimeoutB){ clearTimeout(conflictTimeoutB); conflictTimeoutB = null; }
 }
 
+// Runs the full "you placed an owl somewhere illegal" sequence: show the
+// reason as a tooltip, briefly leave the offending owl in place so the
+// conflict is visible, fade it out, then actually remove it — losing a
+// heart in the process. If that heart was the last one, end the game only
+// once the owl has finished being removed, not the instant it hits zero.
 function showConflictFeedback(r, c, conflicts){
   clearConflictTimers();
   conflictCell = {r, c};
@@ -2760,6 +2806,14 @@ function toggleOwl(r,c){
   checkWin();
 }
 
+/* ---------- X-mark placement: click-drag paints/erases across multiple
+   cells in one stroke ---------- */
+// Whether the stroke adds or removes X marks is decided once, from the
+// very first cell touched (onGridPointerDown), then held for the rest of
+// the drag — so dragging across a mix of marked/unmarked cells doesn't
+// flip back and forth. An erase stroke is further restricted to only the
+// glyph (✕ or ?) it started on, so it can't accidentally erase the other
+// kind of mark it happens to cross over.
 function paintX(r,c,action){
   if(given[r][c]) return;
   if(action==='add' && mark[r][c]!=='x'){
@@ -2819,6 +2873,10 @@ function onDocPointerUp(){
   dragGlyph = null;
 }
 
+// Full re-render of every cell from current state. Simple over incremental
+// (rebuilds each cell's inner HTML wholesale rather than patching just what
+// changed) — board sizes here are small enough (up to ~10x10) that this is
+// cheap, and it avoids an entire class of stale-DOM bugs.
 function render(){
   const el = boardEl();
   const cells = el.children;
@@ -2963,6 +3021,11 @@ function updateImpossibleLocks(){
   document.getElementById('hintBtn').classList.toggle('locked', locked);
 }
 
+// Reveals the first not-yet-correct cell (in reading order) from the true
+// solution and locks it in as a given — same as if it had always been a
+// starting clue. Only usable once per puzzle (see hintUsed) and disabled
+// entirely on impossible/no-lines difficulties, where the 0-clue premise
+// means giving away even one cell trivializes the rest.
 function hint(){
   if(isImpossible()){ flashTip(`You can't use hints on ${currentDifficulty==='nolines'?'no lines':'impossible'} mode!`); return; }
   if(gameOver || solved || hintUsed) return;
@@ -2983,6 +3046,10 @@ function hint(){
   checkWin();
 }
 
+// Takes a freshly generated puzzle (from generatePuzzle) and makes it the
+// live board: resets all per-puzzle state, rebuilds the grid DOM, encodes
+// it into the shareable URL, and starts the timer. This is the single path
+// both newGame() and loadPuzzleFromURL() funnel through.
 function startPuzzle(result){
   clearConflictTimers();
   conflictCell = null;
@@ -3064,6 +3131,11 @@ async function newGame(){
   Sound.newPuzzle();
 }
 
+// Called once at boot (see bottom of file): if the page URL has a `p=`
+// puzzle code — from a shared link, or from our own history.replaceState in
+// startPuzzle() — load that exact board instead of generating a new one.
+// Returns false (and generates normally) if there's no code, or it's
+// invalid/corrupt.
 function loadPuzzleFromURL(){
   try{
     const code = new URLSearchParams(location.search).get('p');
@@ -3120,6 +3192,10 @@ async function captureResultImage(won){
   }
 }
 
+// Three-tier fallback: try the native share sheet with a captured result
+// image attached, then without the image if that combination gets
+// rejected, then finally just copy the puzzle link to the clipboard on
+// platforms with no native share at all.
 async function sharePuzzle(btn, won){
   if(!currentPuzzleCode) return;
   Sound.button();
@@ -3219,6 +3295,7 @@ document.getElementById('confirmNoBtn').addEventListener('click', ()=>{ Sound.bu
 document.getElementById('shareWinBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget, true));
 document.getElementById('shareLoseBtn').addEventListener('click', (e)=> sharePuzzle(e.currentTarget, false));
 
+/* ---------- owl / X mode buttons ---------- */
 const owlModeBtn = document.getElementById('owlModeBtn');
 const xModeBtn = document.getElementById('xModeBtn');
 const xModeIcon = document.getElementById('xModeIcon');
@@ -3244,6 +3321,8 @@ function setMode(m){
 owlModeBtn.addEventListener('click', ()=>setMode('owl'));
 xModeBtn.addEventListener('click', ()=>setMode('x'));
 
+/* ---------- music panel: DOM refs, transport icons, and UI wiring
+   (playback logic itself lives in the Music module above) ---------- */
 const musicToggleBtn = document.getElementById('musicToggle');
 const musicOverlay = document.getElementById('musicOverlay');
 const musicNowName = document.getElementById('musicNowName');
@@ -3330,6 +3409,11 @@ const TUT_REGIONS = [
   [3,4,4,4,4]
 ];
 
+// Renders the small illustrative 5x5 board shown on tutorial pages, driven
+// by a plain spec object rather than real game state: { owls, xs, qs,
+// errors, selected, lines } are all arrays of [r,c] pairs (or similar) that
+// each tutorial page fills in differently to highlight whatever rule it's
+// explaining.
 function tutBoardHTML(spec){
   const n = 5;
   const colors = regionColors(n);
@@ -3628,6 +3712,10 @@ nolinesNextBtn.addEventListener('click', ()=>{
 
 const titleScreen = document.getElementById('titleScreen');
 const gameWrap = document.getElementById('gameWrap');
+// Called once the tap-intro finishes (see playTitleIntro below): unlocks
+// audio (must happen on a user gesture), starts music, reveals the game
+// underneath, and shows the first-run tutorial if this browser hasn't seen
+// it before.
 function dismissTitleScreen(){
   AudioCore.ensure();
   Music.autoStart();
@@ -3690,6 +3778,7 @@ function playTitleIntro(){
 }
 titleScreen.addEventListener('click', playTitleIntro, { once:true });
 
+/* ---------- boot: wire up remaining listeners and start the first puzzle ---------- */
 if('ResizeObserver' in window){
   new ResizeObserver(()=> sizeBoard()).observe(document.getElementById('boardWrap'));
 } else {
