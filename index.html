@@ -3774,8 +3774,8 @@ function playTitleIntro(){
   setTimeout(()=>{ credit.classList.add('show'); }, 950);
   setTimeout(()=>{
     eyes.classList.add('blink-once');
-    Sound.blink();
-    setTimeout(()=> Sound.blink(), 150); // second eye, matches the CSS stagger
+    setTimeout(()=> Sound.blink(), 390);       // first eye closes at ~78% of its 0.5s animation
+    setTimeout(()=> Sound.blink(), 150 + 390);  // second eye, offset by its 0.15s CSS delay
   }, 1400);
   setTimeout(()=>{
     if(hum) hum.stop(0.15);
