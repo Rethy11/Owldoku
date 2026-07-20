@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Us — Owldoku</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#201a2c; --bg-deep:#17131f; --surface:#2c2440; --surface-2:#362c4d;
+    --line:#4a3f63; --line-strong:#6a5c8f; --ink:#f4eee0; --ink-dim:#b7aecb;
+    --accent:#e8a33d; --accent-dim:#715a2b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:
+      radial-gradient(circle at 18% 8%, rgba(232,163,61,0.10), transparent 45%),
+      radial-gradient(circle at 85% 92%, rgba(127,181,158,0.08), transparent 40%),
+      var(--bg);
+    color:var(--ink);
+    font-family:'Space Grotesk', sans-serif;
+    line-height:1.65;
+    padding:48px 20px 90px;
+  }
+  .page{ max-width:640px; margin:0 auto; }
+  .back-link{
+    display:inline-flex; align-items:center; gap:6px;
+    color:var(--ink-dim); text-decoration:none; font-size:0.85rem;
+    margin-bottom:32px; letter-spacing:0.02em;
+    transition:color 0.15s ease;
+  }
+  .back-link:hover, .back-link:focus-visible{ color:var(--accent); }
+  h1{
+    font-family:'Fraunces', serif; font-style:italic; font-weight:600;
+    font-size:clamp(1.9rem, 6vw, 2.5rem); margin:0 0 6px; letter-spacing:0.3px;
+  }
+  .updated{ color:var(--ink-dim); font-size:0.78rem; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.08em; }
+  .lede{ color:var(--ink-dim); font-size:1rem; margin:20px 0 0; }
+  h2{
+    font-family:'Fraunces', serif; font-weight:600; font-style:italic;
+    font-size:1.3rem; margin:40px 0 12px; color:var(--accent);
+  }
+  p{ color:var(--ink); margin:0 0 14px; font-size:0.96rem; }
+  a{ color:var(--accent); text-decoration:none; border-bottom:1px solid var(--accent-dim); }
+  a:hover, a:focus-visible{ border-color:var(--accent); }
+  hr{ border:none; border-top:1px solid var(--line); margin:36px 0; }
+  .legal p{ color:var(--ink-dim); font-size:0.86rem; }
+  footer{
+    margin-top:56px; text-align:center; font-size:0.8rem; color:var(--ink-dim);
+    display:flex; gap:10px; justify-content:center; flex-wrap:wrap;
+  }
+  footer a{ color:var(--ink-dim); border-bottom:1px solid transparent; }
+  footer a:hover, footer a:focus-visible{ color:var(--accent); border-color:var(--accent-dim); }
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back-link" href="Owldoku.html">&larr; Back to Owldoku</a>
+
+  <h1>About Plasticine Games</h1>
+  <p class="lede">Welcome!</p>
+
+  <p>Plasticine Games is a small independent game studio owned and operated by Shawn.Genji. What started as a hobby has grown into a passion project dedicated to creating relaxing puzzle games and experimental experiences that are polished, thoughtfully designed, and simply fun to play.</p>
+  <p>I develop every game in my spare time, focusing on the details that often make the biggest difference: responsive gameplay, handcrafted visuals, carefully selected sound effects, and music designed to create a smooth, enjoyable experience. My goal is simple&mdash;I hope you enjoy playing these games as much as I&rsquo;ve enjoyed creating them.</p>
+
+  <h2>About Owldoku</h2>
+  <p>Owldoku is my take on the Queens puzzle. It began with a simple thought: surely someone could make a better version than the endless stream of low-quality mobile puzzle ads. Rather than settling for the bare minimum, I wanted to build a version that feels satisfying from the very first click.</p>
+  <p>Beyond recreating the core puzzle, Owldoku introduces its own innovations. The puzzle generation algorithm has been carefully designed to produce more interesting and challenging boards, and the highest difficulty features an entirely unique variation of the game that offers a fresh experience even for experienced players.</p>
+  <p>Whether you&rsquo;re looking for a relaxing daily puzzle or a serious mental challenge, I hope Owldoku provides an experience that&rsquo;s rewarding, polished, and worth coming back to.</p>
+
+  <h2>Looking Ahead</h2>
+  <p>Owldoku is only the beginning. Plasticine Games is already developing its next project, Slime Sliders, along with other experimental games that explore new mechanics and ideas while maintaining a focus on accessibility, quality, and player enjoyment.</p>
+
+  <h2>Your Privacy</h2>
+  <p>Owldoku stores a small amount of information locally on your device using your browser&rsquo;s local storage. This includes things such as your audio preferences and personal accomplishments, including best times and completed difficulties.</p>
+  <p>This information never leaves your device and is not accessible to Plasticine Games.</p>
+  <p>Owldoku does not include player accounts, cloud saves, analytics, crash reporting, or tracking technologies created by Plasticine Games.</p>
+  <p>The website may display advertisements through Google AdSense or similar advertising providers. These third-party services may collect information as described in their own privacy policies. Plasticine Games does not receive access to your locally stored game data. See the full <a href="privacy.html">Privacy Policy</a> for details.</p>
+
+  <h2>Contact</h2>
+  <p>Questions, suggestions, bug reports, or just want to say hello?</p>
+  <p>You can reach Plasticine Games on Instagram at <a href="https://www.instagram.com/plasticinegames" target="_blank" rel="noopener">@plasticinegames</a>.</p>
+
+  <hr>
+
+  <h2>Legal</h2>
+  <div class="legal">
+    <p>Plasticine Games is a sole proprietorship operating in the State of Tennessee, United States.</p>
+    <p>Owldoku, Plasticine Games, and their associated artwork, graphics, music, sound effects, code, logos, and original content are &copy; 2026 Shawn.Genji. All rights reserved unless otherwise stated.</p>
+    <p>Owldoku is proprietary software. While portions of the source code may be publicly viewable through a GitHub repository, public availability does not grant permission to copy, redistribute, modify, or commercially use the game or its assets except where an explicit license is provided.</p>
+    <p>All third-party names, trademarks, and registered trademarks referenced within the game or website remain the property of their respective owners.</p>
+    <p>Plasticine Games provides its games &ldquo;as is&rdquo; without warranties of any kind, express or implied, including but not limited to merchantability, fitness for a particular purpose, or uninterrupted availability. To the fullest extent permitted by Tennessee and applicable United States law, Plasticine Games shall not be liable for any damages arising from the use of this website or its games.</p>
+    <p>This About page is provided for informational purposes and does not replace the website&rsquo;s <a href="privacy.html">Privacy Policy</a> or <a href="terms.html">Terms of Use</a>, which may be published separately as the project grows.</p>
+  </div>
+
+  <p style="margin-top:32px;">Thank you for visiting Plasticine Games, and thank you for giving Owldoku a chance. Every puzzle solved helps encourage the next game to become even better.</p>
+
+  <footer>
+    <a href="Owldoku.html">Owldoku</a> &bull; <a href="privacy.html">Privacy Policy</a> &bull; <a href="terms.html">Terms of Use</a>
+  </footer>
+</div>
+</body>
+</html>
