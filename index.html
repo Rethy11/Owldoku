@@ -621,7 +621,6 @@
   #cityBg .city-rain-front{ opacity:0.52; }
   #cityBg .drop{
     animation-name:cbDropFall; animation-timing-function:linear; animation-iteration-count:infinite;
-    will-change:transform;
   }
   @keyframes cbDropFall{
     0%{ transform:translate(0,0); }
@@ -776,7 +775,7 @@
             x:wx, y:wy, width:cellW*0.5, height:cellH*0.56, rx:1,
             fill: pick(litColors), opacity:baseOpacity
           });
-          if(lit && Math.random() < 0.08){
+          if(lit && Math.random() < 0.04){
             rect.setAttribute('class','win');
             rect.style.setProperty('--d', rnd(0,10).toFixed(2)+'s');
             rect.style.setProperty('--fdur', rnd(4,9).toFixed(2)+'s');
