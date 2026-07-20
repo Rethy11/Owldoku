@@ -451,6 +451,12 @@
     margin-top:min(0.3vh,3px); letter-spacing:0.02em; line-height:1.2;
     flex:0 0 auto;
   }
+  footer a{
+    color:var(--ink-dim); text-decoration:none;
+    border-bottom:1px solid transparent;
+    transition:color 0.15s ease, border-color 0.15s ease;
+  }
+  footer a:hover, footer a:focus-visible{ color:var(--accent); border-color:var(--accent-dim); }
 
   .ad-banner{
     flex:0 0 auto;
@@ -521,6 +527,55 @@
     animation:pulseTap 1.8s ease-in-out infinite;
   }
   @keyframes pulseTap{ 0%,100%{opacity:0.35;} 50%{opacity:1;} }
+
+  /* ===================== title-tap intro: eyes float down, studio credit,
+     blink, glitch-fade — then the normal title-screen dismissal takes over ===================== */
+  .title-screen.intro .eyes span{ animation:none; }
+  .title-screen .studio-credit{
+    visibility:hidden;
+    opacity:0;
+    margin-top:16px;
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    font-size:0.8rem;
+    letter-spacing:0.42em;
+    text-transform:uppercase;
+    color:var(--ink-dim);
+    transition:opacity 0.4s ease;
+  }
+  .title-screen .studio-credit.show{ opacity:1; }
+  .title-screen .eyes.blink-once span{ animation:blinkOnce 0.5s ease-in-out; }
+  .title-screen .eyes.blink-once span:nth-child(2){ animation-delay:0.15s; }
+  @keyframes blinkOnce{ 0%,55%,100%{transform:scaleY(1);} 78%{transform:scaleY(0.12);} }
+  .title-screen .eyes.glitch-out,
+  .title-screen .studio-credit.glitch-out{
+    animation:glitchFade 0.7s steps(1) forwards;
+  }
+  @keyframes glitchFade{
+    0%{opacity:1; transform:translate(0,0) skew(0deg,0deg) scaleX(1); filter:none;}
+    5%{opacity:0.15; transform:translate(-7px,2px) skew(-6deg,0deg) scaleX(1.1); filter:hue-rotate(50deg) saturate(3);}
+    9%{opacity:1; transform:translate(5px,-3px) skew(4deg,1deg) scaleX(0.94); filter:none;}
+    13%{opacity:0.25; transform:translate(-4px,0) scaleX(1.12); filter:invert(0.2);}
+    18%{opacity:0.05; transform:translate(3px,3px); filter:none;}
+    23%{opacity:0.9; transform:translate(6px,1px) skew(-3deg,0deg); filter:hue-rotate(-40deg);}
+    28%{opacity:0.2; transform:translate(-8px,-2px) scaleX(0.9); filter:none;}
+    34%{opacity:0.8; transform:translate(2px,3px) skew(5deg,0deg); filter:saturate(4);}
+    40%{opacity:0.1; transform:translate(-3px,0); filter:none;}
+    47%{opacity:0.7; transform:translate(4px,-1px) scaleX(1.08); filter:invert(0.15);}
+    53%{opacity:0.03; transform:translate(-6px,2px); filter:none;}
+    60%{opacity:0.6; transform:translate(3px,0) skew(-4deg,0deg); filter:hue-rotate(70deg);}
+    67%{opacity:0.12; transform:translate(-2px,1px); filter:none;}
+    74%{opacity:0.45; transform:translate(5px,-2px) scaleX(0.95); filter:none;}
+    82%{opacity:0.06; transform:translate(-1px,1px); filter:invert(0.3);}
+    90%{opacity:0.25; transform:translate(1px,0); filter:none;}
+    96%{opacity:0.02; transform:translate(0,0);}
+    100%{opacity:0; transform:translate(0,0) skew(0deg,0deg) scaleX(1); filter:none;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .title-screen .eyes.blink-once span,
+    .title-screen .eyes.glitch-out,
+    .title-screen .studio-credit.glitch-out{ animation:none !important; }
+  }
 
   /* ===================== Tokyo Midnight Rain — main-screen backdrop ===================== */
   /* Sits at z-index:-1 behind the game wrap. The title-screen paints its own opaque
@@ -990,14 +1045,17 @@
 </svg>
 
 <button type="button" class="title-screen" id="titleScreen" aria-label="Tap to play">
-  <div class="eyes"><span></span><span></span></div>
-  <h1>Owldoku</h1>
-  <div class="tag">one owl per color, row & column</div>
-  <p class="title-rules">
-    Place exactly <b>one owl</b> in every row, every column, and every colored territory.
-    Owls may never touch &mdash; not even diagonally.
-  </p>
-  <div class="tap-prompt">tap to play</div>
+  <div class="eyes" id="titleEyes"><span></span><span></span></div>
+  <div class="title-main">
+    <h1>Owldoku</h1>
+    <div class="tag">one owl per color, row & column</div>
+    <p class="title-rules">
+      Place exactly <b>one owl</b> in every row, every column, and every colored territory.
+      Owls may never touch &mdash; not even diagonally.
+    </p>
+    <div class="tap-prompt">tap to play</div>
+  </div>
+  <div class="studio-credit" id="studioCredit">PLASTICINE GAMES</div>
 </button>
 
 <div class="wrap" id="gameWrap">
@@ -1054,7 +1112,9 @@
     <button class="btn primary" id="newBtn">New puzzle</button>
   </div>
 
-  <footer>owl mode: tap to place/remove &bull; mark mode: tap/drag to mark ✕</footer>
+  <footer>
+    <a href="about.html">About Us</a> &bull; <a href="privacy.html">Privacy Policy</a> &bull; <a href="terms.html">Terms of Use</a>
+  </footer>
 
   <div class="ad-banner">
     <ins class="adsbygoogle"
@@ -1388,7 +1448,113 @@ const Sound = (function(){
     },
     button(){ thock({freq:340, dur:0.06, gain:0.13, type:'sine', filterFreq:2200, click:true}); },
     modeSwitch(){ thock({freq:420, dur:0.08, gain:0.14, type:'sine', filterFreq:2600, glide:60}); },
-    newPuzzle(){ chord([293.66, 392.00], {dur:0.28, gain:0.16, stagger:0.06, filterFreq:2800}); }
+    newPuzzle(){ chord([293.66, 392.00], {dur:0.28, gain:0.16, stagger:0.06, filterFreq:2800}); },
+    // soft eyelid dip for the title-intro blink — a low, round thock rather
+    // than a bright click, so it reads as a gentle blink not a UI tap
+    blink(){ thock({freq:300, dur:0.09, gain:0.12, type:'sine', filterFreq:1400, glide:-45, click:false}); },
+    // low, warm bulb-filament hum for the title-intro float — two detuned
+    // low oscillators with a slow gain wobble, like a bulb warming up.
+    // Returns a handle with .stop() to fade it out on cue (e.g. when the
+    // glitch-out begins).
+    bulbHumStart(){
+      const c = ensureCtx();
+      if(!c) return null;
+      const now = c.currentTime;
+
+      const osc1 = c.createOscillator();
+      osc1.type = 'sine';
+      osc1.frequency.value = 88;
+      const osc2 = c.createOscillator();
+      osc2.type = 'triangle';
+      osc2.frequency.value = 88 * 1.5;
+
+      const filt = c.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = 480;
+      filt.Q.value = 0.4;
+
+      const g = c.createGain();
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.045, now + 0.5);
+
+      // gentle filament-style wobble
+      const lfo = c.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 5.5;
+      const lfoGain = c.createGain();
+      lfoGain.gain.value = 0.01;
+      lfo.connect(lfoGain);
+      lfoGain.connect(g.gain);
+
+      osc1.connect(filt); osc2.connect(filt); filt.connect(g); g.connect(masterGain);
+      osc1.start(now); osc2.start(now); lfo.start(now);
+
+      let stopped = false;
+      return {
+        stop(fadeDur=0.25){
+          if(stopped) return;
+          stopped = true;
+          const t = c.currentTime;
+          g.gain.cancelScheduledValues(t);
+          g.gain.setValueAtTime(g.gain.value, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + fadeDur);
+          osc1.stop(t + fadeDur + 0.05);
+          osc2.stop(t + fadeDur + 0.05);
+          lfo.stop(t + fadeDur + 0.05);
+        }
+      };
+    },
+    // staticky, bug-zapper style burst for the title-intro glitch-out: a
+    // stuttering noise bed plus a square-wave tone that jumps between
+    // erratic frequencies
+    glitchZap(){
+      const c = ensureCtx();
+      if(!c) return;
+      const now = c.currentTime;
+      const dur = 0.7;
+
+      const bufSize = Math.floor(c.sampleRate * dur);
+      const buf = c.createBuffer(1, bufSize, c.sampleRate);
+      const data = buf.getChannelData(0);
+      for(let i=0;i<bufSize;i++){ data[i] = Math.random()*2-1; }
+      const noise = c.createBufferSource();
+      noise.buffer = buf;
+      const nf = c.createBiquadFilter();
+      nf.type = 'bandpass';
+      nf.frequency.value = 3200;
+      nf.Q.value = 0.7;
+      const ng = c.createGain();
+      ng.gain.setValueAtTime(0.0001, now);
+      const steps = 14;
+      for(let i=0;i<steps;i++){
+        const t = now + (i/steps)*dur;
+        const on = Math.random() > 0.3;
+        ng.gain.setValueAtTime(on ? (0.06 + Math.random()*0.09) : 0.0001, t);
+      }
+      ng.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      noise.connect(nf); nf.connect(ng); ng.connect(masterGain);
+      noise.start(now);
+      noise.stop(now + dur + 0.02);
+
+      const osc = c.createOscillator();
+      osc.type = 'square';
+      const of = c.createBiquadFilter();
+      of.type = 'lowpass';
+      of.frequency.value = 2400;
+      const og = c.createGain();
+      og.gain.setValueAtTime(0.0001, now);
+      const freqs = [160, 950, 210, 1300, 120, 700, 90, 480];
+      freqs.forEach((f,i)=>{
+        const t = now + (i/freqs.length)*dur;
+        osc.frequency.setValueAtTime(f, t);
+        og.gain.setValueAtTime(0.08, t);
+        og.gain.exponentialRampToValueAtTime(0.015, t + (dur/freqs.length)*0.8);
+      });
+      og.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(of); of.connect(og); og.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + dur + 0.02);
+    }
   };
 })();
 
@@ -3570,7 +3736,56 @@ function dismissTitleScreen(){
     titleScreen.style.display = 'none';
   }, { once:true });
 }
-titleScreen.addEventListener('click', dismissTitleScreen, { once:true });
+// Tap-intro sequence: the eyes float from their title-screen position down to
+// just above center (achieved for free by letting the flex column re-center
+// once the rest of the title content is removed — a small FLIP animation
+// carries the eyes smoothly into that spot instead of jumping there), then
+// "PLASTICINE GAMES" fades in below them, they blink once, and both glitch-fade
+// out before the normal title dismissal reveals the game.
+function playTitleIntro(){
+  const eyes = document.getElementById('titleEyes');
+  const credit = document.getElementById('studioCredit');
+  const titleMain = titleScreen.querySelector('.title-main');
+
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    dismissTitleScreen();
+    return;
+  }
+
+  titleScreen.classList.add('intro');
+
+  // FLIP: capture the eyes' position before removing the rest of the title
+  // content, then let layout re-center around just eyes + credit, then
+  // animate from the old position to the new one.
+  const firstRect = eyes.getBoundingClientRect();
+  titleMain.style.display = 'none';
+  credit.style.visibility = 'visible';
+  const lastRect = eyes.getBoundingClientRect();
+  const dy = firstRect.top - lastRect.top;
+
+  eyes.style.transition = 'none';
+  eyes.style.transform = `translateY(${dy}px)`;
+  void eyes.offsetHeight; // force reflow so the jump above isn't animated
+  eyes.style.transition = 'transform 0.9s cubic-bezier(.22,.61,.36,1)';
+  requestAnimationFrame(()=>{ eyes.style.transform = 'translateY(0)'; });
+
+  const hum = Sound.bulbHumStart();
+
+  setTimeout(()=>{ credit.classList.add('show'); }, 950);
+  setTimeout(()=>{
+    eyes.classList.add('blink-once');
+    Sound.blink();
+    setTimeout(()=> Sound.blink(), 150); // second eye, matches the CSS stagger
+  }, 1400);
+  setTimeout(()=>{
+    if(hum) hum.stop(0.15);
+    eyes.classList.add('glitch-out');
+    credit.classList.add('glitch-out');
+    Sound.glitchZap();
+  }, 2200);
+  setTimeout(dismissTitleScreen, 2950);
+}
+titleScreen.addEventListener('click', playTitleIntro, { once:true });
 
 if('ResizeObserver' in window){
   new ResizeObserver(()=> sizeBoard()).observe(document.getElementById('boardWrap'));
