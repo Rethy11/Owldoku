@@ -200,6 +200,12 @@
     touch-action:none;
   }
   .cell .glyph svg{ width:100%; height:100%; display:block; }
+  /* Every owl <img> (grid clues, mode icon, win/lose icon, tutorial pages)
+     shares this one rule: fill whatever box its container establishes,
+     keep its own aspect ratio, and never intercept clicks. Sizing lives on
+     the container (.cell .glyph, .mode-btn .ic, .card .paw, .tut-owl-ic,
+     .tgo-owl); this is the only rule the owl image itself needs. */
+  .owl-icon{ width:100%; height:100%; display:block; object-fit:contain; pointer-events:none; }
   .cell .xmark{
     position:relative; z-index:2;
     width:38%; height:38%;
@@ -250,7 +256,7 @@
     padding:8px 6px; border-radius:12px; cursor:pointer;
     transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
   }
-  .mode-btn .ic{ font-size:1.15rem; vertical-align:-3px; display:inline-block; }
+  .mode-btn .ic{ width:1.15rem; height:1.15rem; vertical-align:-3px; display:inline-block; }
   .mode-btn.active{
     border-color:var(--accent); background:var(--accent-dim); color:var(--ink);
   }
@@ -308,7 +314,7 @@
     background:var(--surface); border:1px solid var(--line-strong); border-radius:18px;
     padding:28px 26px; text-align:center; max-width:320px;
   }
-  .card .paw{ font-size:4rem; margin-bottom:8px; line-height:1; }
+  .card .paw{ width:4rem; height:4rem; margin:0 auto 8px; line-height:1; }
   .card h2{ font-family:'Fraunces', serif; font-style:italic; margin:0 0 6px; font-size:1.5rem; }
   .card p{ color:var(--ink-dim); font-size:0.86rem; margin:0 0 16px; }
   .card.sad h2{ color:var(--miss); }
@@ -324,7 +330,6 @@
   }
   .tut-close-btn:hover{ border-color:var(--line-strong); color:var(--ink); }
   .tut-owl-ic{ width:56px; height:56px; margin:0 auto 6px; }
-  .tut-owl-ic svg{ width:100%; height:100%; display:block; }
   .tutorial-card h2{ font-size:1.25rem; }
   .tut-board-box{
     position:relative;
@@ -346,7 +351,6 @@
     gap:4px; text-align:center; padding:8px;
   }
   .tut-gameover-overlay .tgo-owl{ width:30px; height:30px; }
-  .tut-gameover-overlay .tgo-owl svg{ width:100%; height:100%; display:block; }
   .tut-gameover-overlay .tgo-title{ font-family:'Fraunces', serif; font-style:italic; font-weight:600; font-size:0.95rem; color:var(--ink); }
   .tut-gameover-overlay .tgo-sub{ font-size:0.62rem; color:var(--ink-dim); letter-spacing:0.02em; }
   .tut-gameover-overlay .tgo-hearts{ margin-top:2px; font-size:0.85rem; letter-spacing:3px; color:var(--miss); }
@@ -1010,41 +1014,6 @@
     <stop offset="0.65" stop-color="#d7ecff" stop-opacity="0.65"/>
     <stop offset="1" stop-color="#f2f9ff" stop-opacity="0"/>
   </linearGradient>
-  <radialGradient id="owlBodyGrad" cx="38%" cy="26%" r="78%">
-    <stop offset="0%" stop-color="#fbe3ac"/>
-    <stop offset="45%" stop-color="#eeb15c"/>
-    <stop offset="100%" stop-color="#c97a2e"/>
-  </radialGradient>
-  <radialGradient id="owlBodyGradSad" cx="38%" cy="26%" r="78%">
-    <stop offset="0%" stop-color="#d9cba7"/>
-    <stop offset="45%" stop-color="#b3915c"/>
-    <stop offset="100%" stop-color="#87602f"/>
-  </radialGradient>
-  <radialGradient id="owlFaceGrad" cx="50%" cy="34%" r="72%">
-    <stop offset="0%" stop-color="#fff8ea"/>
-    <stop offset="60%" stop-color="#f7d693"/>
-    <stop offset="100%" stop-color="#eab55c"/>
-  </radialGradient>
-  <linearGradient id="owlWingGrad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#d9973f"/>
-    <stop offset="100%" stop-color="#a8641f"/>
-  </linearGradient>
-  <linearGradient id="owlTuftGrad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#c68b3c"/>
-    <stop offset="100%" stop-color="#8a5a22"/>
-  </linearGradient>
-  <linearGradient id="owlBeakGrad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#f6c877"/>
-    <stop offset="100%" stop-color="#d17a3b"/>
-  </linearGradient>
-  <radialGradient id="owlIrisGrad" cx="35%" cy="30%" r="70%">
-    <stop offset="0%" stop-color="#f0b25a"/>
-    <stop offset="55%" stop-color="#b9722a"/>
-    <stop offset="100%" stop-color="#6b3f1a"/>
-  </radialGradient>
-  <filter id="owlSoftShadow" x="-50%" y="-50%" width="200%" height="200%">
-    <feGaussianBlur stdDeviation="1.6"/>
-  </filter>
 </defs>
 </svg>
 
@@ -1175,6 +1144,7 @@
 <div class="overlay" id="winOverlay">
   <div class="confetti-layer" id="confettiLayer"></div>
   <div class="card">
+    <button type="button" class="tut-close-btn" id="winCloseBtn" aria-label="Close">✕</button>
     <div class="paw" id="winOwlIcon"></div>
     <h2>Every owl is home</h2>
     <p id="winStats">Solved in 00:00.</p>
@@ -1188,6 +1158,7 @@
 
 <div class="overlay" id="loseOverlay">
   <div class="card sad">
+    <button type="button" class="tut-close-btn" id="loseCloseBtn" aria-label="Close">✕</button>
     <div class="paw" id="loseOwlIcon"></div>
     <h2>Out of hearts</h2>
     <p>Too many owls bumped into each other. Try this board again, or start a fresh one.</p>
@@ -2520,87 +2491,19 @@ function regionColors(N){
 /* ---------- hand-drawn owl sprites (neutral / happy / dazed) ---------- */
 /* All three share the gradient + filter defs declared once near <body>. */
 
-const OWL_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg">
-  <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.28" filter="url(#owlSoftShadow)"/>
-  <path d="M22,40 C10,45 8,65 18,82 C22,84 26,80 26,65 C26,55 25,46 22,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
-  <path d="M18,54 Q21,64 17,74" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
-  <path d="M22,58 Q24,66 21,76" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.3" stroke-linecap="round"/>
-  <path d="M78,40 C90,45 92,65 82,82 C78,84 74,80 74,65 C74,55 75,46 78,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
-  <path d="M82,54 Q79,64 83,74" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
-  <path d="M78,58 Q76,66 79,76" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.3" stroke-linecap="round"/>
-  <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGrad)" stroke="#5c3a17" stroke-width="1.1"/>
-  <path d="M14,24 C11,14 14,3 21,7 C25,12 23,20 20,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <path d="M27,22 C25,13 28,5 34,10 C37,15 35,21 31,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <path d="M86,24 C89,14 86,3 79,7 C75,12 77,20 80,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <path d="M73,22 C75,13 72,5 66,10 C63,15 65,21 69,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.95"/>
-  <circle cx="37" cy="47" r="13.5" fill="none" stroke="#2a1c10" stroke-width="1.1" opacity="0.4"/>
-  <circle cx="37" cy="47" r="12" fill="#fffdf6"/>
-  <circle cx="37" cy="47" r="8.3" fill="url(#owlIrisGrad)"/>
-  <circle cx="37" cy="47" r="4.4" fill="#1c130a"/>
-  <circle cx="34.3" cy="43.8" r="1.7" fill="#fff"/>
-  <circle cx="39.5" cy="50" r="0.8" fill="#fff" opacity="0.6"/>
-  <circle cx="63" cy="47" r="13.5" fill="none" stroke="#2a1c10" stroke-width="1.1" opacity="0.4"/>
-  <circle cx="63" cy="47" r="12" fill="#fffdf6"/>
-  <circle cx="63" cy="47" r="8.3" fill="url(#owlIrisGrad)"/>
-  <circle cx="63" cy="47" r="4.4" fill="#1c130a"/>
-  <circle cx="60.3" cy="43.8" r="1.7" fill="#fff"/>
-  <circle cx="65.5" cy="50" r="0.8" fill="#fff" opacity="0.6"/>
-  <path d="M50,55 C45,55 42,59 43,64 C43.5,67 46.5,69 50,69 C53.5,69 56.5,67 57,64 C58,59 55,55 50,55 Z" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
-  <path d="M50,57.5 L50,62.5" stroke="#8a4a1e" stroke-width="0.6" opacity="0.4" stroke-linecap="round"/>
-  <path d="M38,76 Q50,70 62,76" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.45" stroke-linecap="round"/>
-  <path d="M36,82 Q50,75 64,82" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.4" stroke-linecap="round"/>
-  <path d="M38,87 Q50,81 62,87" stroke="#c98a3e" stroke-width="1.2" fill="none" opacity="0.35" stroke-linecap="round"/>
-  <path d="M41,88 L37,96 M41,88 L41,97 M41,88 L45,96" stroke="#8a4a1e" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.5"/>
-  <path d="M59,88 L55,96 M59,88 L59,97 M59,88 L63,96" stroke="#8a4a1e" stroke-width="1.3" fill="none" stroke-linecap="round" opacity="0.5"/>
-</svg>`;
-
-const OWL_HAPPY_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg">
-  <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.28" filter="url(#owlSoftShadow)"/>
-  <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGrad)" stroke="#5c3a17" stroke-width="1.1"/>
-  <path d="M27,54 C16,50 6,42 3,26 C2,20 4,16 8,20 C13,28 18,37 24,44 C26,48 27,51 27,54 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
-  <path d="M21,40 Q14,30 9,20" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.4" stroke-linecap="round"/>
-  <path d="M16,34 Q10,26 6,18" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
-  <path d="M73,54 C84,50 94,42 97,26 C98,20 96,16 92,20 C87,28 82,37 76,44 C74,48 73,51 73,54 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1"/>
-  <path d="M79,40 Q86,30 91,20" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.4" stroke-linecap="round"/>
-  <path d="M84,34 Q90,26 94,18" stroke="#5c3a17" stroke-width="1" fill="none" opacity="0.35" stroke-linecap="round"/>
-  <path d="M14,24 C11,14 14,3 21,7 C25,12 23,20 20,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <path d="M27,22 C25,13 28,5 34,10 C37,15 35,21 31,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <path d="M86,24 C89,14 86,3 79,7 C75,12 77,20 80,27 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <path d="M73,22 C75,13 72,5 66,10 C63,15 65,21 69,26 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8"/>
-  <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.95"/>
-  <circle cx="27" cy="58" r="4.3" fill="#ef8264" opacity="0.4"/>
-  <circle cx="73" cy="58" r="4.3" fill="#ef8264" opacity="0.4"/>
-  <path d="M28,48 Q37,38 46,48" stroke="#2a1c10" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <path d="M54,48 Q63,38 72,48" stroke="#2a1c10" stroke-width="2.6" fill="none" stroke-linecap="round"/>
-  <path d="M50,55 C45,55 42,59 43,64 C43.5,67 46.5,69 50,69 C53.5,69 56.5,67 57,64 C58,59 55,55 50,55 Z" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
-  <path d="M38,76 Q50,70 62,76" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.45" stroke-linecap="round"/>
-  <path d="M36,82 Q50,75 64,82" stroke="#c98a3e" stroke-width="1.3" fill="none" opacity="0.4" stroke-linecap="round"/>
-  <path d="M12.0,10.8 L12.9,13.1 L15.2,14.0 L12.9,14.9 L12.0,17.2 L11.1,14.9 L8.8,14.0 L11.1,13.1 Z" fill="#f4d99a"/>
-  <path d="M88.0,14.4 L88.7,16.3 L90.6,17.0 L88.7,17.7 L88.0,19.6 L87.3,17.7 L85.4,17.0 L87.3,16.3 Z" fill="#f4d99a"/>
-  <path d="M50.0,0.6 L50.7,2.3 L52.4,3.0 L50.7,3.7 L50.0,5.4 L49.3,3.7 L47.6,3.0 L49.3,2.3 Z" fill="#f4d99a"/>
-</svg>`;
-
-const OWL_SAD_SVG = `<svg viewBox="-4 -4 108 108" width="1em" height="1em" xmlns="http://www.w3.org/2000/svg">
-  <g transform="rotate(-6 50 50)">
-    <ellipse cx="50" cy="93" rx="24" ry="4.5" fill="#000" opacity="0.25" filter="url(#owlSoftShadow)"/>
-    <path d="M22,40 C10,45 8,65 18,82 C22,84 26,80 26,65 C26,55 25,46 22,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1" opacity="0.85"/>
-    <path d="M78,40 C90,45 92,65 82,82 C78,84 74,80 74,65 C74,55 75,46 78,40 Z" fill="url(#owlWingGrad)" stroke="#5c3a17" stroke-width="1" opacity="0.85"/>
-    <ellipse cx="50" cy="52" rx="33" ry="38" fill="url(#owlBodyGradSad)" stroke="#4a2f14" stroke-width="1.1"/>
-    <path d="M14,24 C8,30 4,40 10,46 C15,50 22,46 22,36 C22,30 20,26 14,24 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
-    <path d="M27,22 C22,28 20,36 25,42 C29,46 34,42 33,34 C32,29 30,25 27,22 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
-    <path d="M86,24 C92,30 96,40 90,46 C85,50 78,46 78,36 C78,30 80,26 86,24 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
-    <path d="M73,22 C78,28 80,36 75,42 C71,46 66,42 67,34 C68,29 70,25 73,22 Z" fill="url(#owlTuftGrad)" stroke="#4a2f14" stroke-width="0.8" opacity="0.85"/>
-    <ellipse cx="50" cy="46" rx="27" ry="26" fill="url(#owlFaceGrad)" stroke="#c98a3e" stroke-width="0.8" opacity="0.75"/>
-    <path d="M30,42 L42,54 M42,42 L30,54" stroke="#2a1c10" stroke-width="2.4" stroke-linecap="round"/>
-    <path d="M58,42 L70,54 M70,42 L58,54" stroke="#2a1c10" stroke-width="2.4" stroke-linecap="round"/>
-    <ellipse cx="50" cy="63" rx="5" ry="6" fill="url(#owlBeakGrad)" stroke="#8a4a1e" stroke-width="0.8"/>
-    <ellipse cx="50" cy="65" rx="2.6" ry="3" fill="#7a3a18" opacity="0.6"/>
-    <path d="M18.0,6.6 L18.7,8.3 L20.4,9.0 L18.7,9.7 L18.0,11.4 L17.3,9.7 L15.6,9.0 L17.3,8.3 Z" fill="#f4eee0" opacity="0.6"/>
-    <path d="M83.0,10.0 L83.6,11.4 L85.0,12.0 L83.6,12.6 L83.0,14.0 L82.4,12.6 L81.0,12.0 L82.4,11.4 Z" fill="#f4eee0" opacity="0.5"/>
-    <path d="M50.0,1.0 L50.5,2.3 L51.8,2.8 L50.5,3.3 L50.0,4.6 L49.5,3.3 L48.2,2.8 L49.5,2.3 Z" fill="#f4eee0" opacity="0.45"/>
-  </g>
-</svg>`;
+// Owl artwork lives in individual, fully self-contained .svg files under
+// /sprites (owl.svg, owl-happy.svg, owl-sad.svg) — each one bundles its own
+// gradients/filters and depends on nothing else on the page. They're
+// rendered as plain <img> elements, so each is a fully isolated resource:
+// swapping any of these three files for a different image (any size, any
+// style) just works, with nothing else in the code or page to break.
+function owlIconHTML(kind, extraClass){
+  const src = kind === 'happy' ? 'sprites/owl-happy.svg'
+            : kind === 'sad'   ? 'sprites/owl-sad.svg'
+            : 'sprites/owl.svg';
+  const cls = 'owl-icon' + (extraClass ? ' ' + extraClass : '');
+  return `<img class="${cls}" src="${src}" alt="" draggable="false" onerror="this.style.visibility='hidden'">`;
+}
 
 let N = 6;
 let regionOf = [];
@@ -2931,7 +2834,7 @@ function render(){
 
       let inner = '';
       if(isOwl){
-        inner = `<div class="glyph">${OWL_SVG}</div>`;
+        inner = `<div class="glyph">${owlIconHTML()}</div>`;
       } else if(mark[r][c]==='x'){
         inner = xSvg(markGlyph[r][c]);
       }
@@ -3189,38 +3092,11 @@ async function captureResultImage(won){
   const cardEl = document.querySelector(won ? '#winOverlay .card' : '#loseOverlay .card');
   if(!cardEl) return null;
 
-  // Do all the work on a detached clone, off-screen. Earlier versions edited the
-  // *live* card's icon <svg> in place (even briefly, even restored afterward) and
-  // that was enough to confuse the browser's gradient paint cache for the whole
-  // page, leaving the real game board's owls unfilled after sharing. Cloning
-  // means the live DOM — and the shared gradient defs the board depends on —
-  // is never touched.
+  // Work on a detached clone, off-screen, so nothing about the live card
+  // or page is ever touched by the capture process.
   const clone = cardEl.cloneNode(true);
   clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
   clone.removeAttribute('id');
-
-  const iconSvg = clone.querySelector('.paw svg');
-  const sharedDefs = document.querySelector('#sharedIconDefs defs');
-  if(iconSvg && sharedDefs){
-    const suffix = `cap${Date.now()}`;
-    const defsClone = sharedDefs.cloneNode(true);
-    const idMap = {};
-    defsClone.querySelectorAll('[id]').forEach(node => {
-      const newId = `${node.id}-${suffix}`;
-      idMap[node.id] = newId;
-      node.id = newId;
-    });
-    const refAttrs = ['fill','stroke','filter'];
-    iconSvg.querySelectorAll('*').forEach(node => {
-      refAttrs.forEach(attr => {
-        const val = node.getAttribute(attr);
-        if(val && val.startsWith('url(#') && idMap[val.slice(5,-1)]){
-          node.setAttribute(attr, `url(#${idMap[val.slice(5,-1)]})`);
-        }
-      });
-    });
-    iconSvg.insertBefore(defsClone, iconSvg.firstChild);
-  }
 
   const rect = cardEl.getBoundingClientRect();
   clone.style.position = 'fixed';
@@ -3290,7 +3166,6 @@ async function sharePuzzle(btn, won){
 }
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{
-  if(gameOver) return;
   Sound.button();
   if(hasInteracted){ openConfirm('reset'); } else { resetMarksOnly(); }
 });
@@ -3302,6 +3177,16 @@ document.getElementById('newBtn').addEventListener('click', ()=>{
 document.getElementById('playAgainBtn').addEventListener('click', newGame);
 document.getElementById('retryBtn').addEventListener('click', ()=>{ Sound.button(); resetMarksOnly(); });
 document.getElementById('freshBtn').addEventListener('click', newGame);
+// Just dismiss the overlay — the puzzle stays exactly as it is (solved or
+// game-over) underneath, so this never restarts a puzzle or generates a
+// new one. Timer/board/hearts state is untouched; checkWin()/endGame()
+// already stopped the timer before this overlay ever appeared.
+function closeResultOverlay(overlayId){
+  Sound.button();
+  document.getElementById(overlayId).classList.remove('show');
+}
+document.getElementById('winCloseBtn').addEventListener('click', ()=> closeResultOverlay('winOverlay'));
+document.getElementById('loseCloseBtn').addEventListener('click', ()=> closeResultOverlay('loseOverlay'));
 document.getElementById('sizeSelect').addEventListener('change', newGame);
 document.getElementById('difficultySelect').addEventListener('change', (e)=>{
   if(e.target.value === 'nolines') showNolinesTutorial();
@@ -3465,7 +3350,7 @@ function tutBoardHTML(spec){
       if(isError) cls += ' error';
       if(isSelected) cls += ' selected';
       html += `<div class="${cls}"><div class="fill" style="background:${colors[TUT_REGIONS[r][c]]}"></div>`;
-      if(isOwl) html += `<div class="glyph">${OWL_SVG}</div>`;
+      if(isOwl) html += `<div class="glyph">${owlIconHTML()}</div>`;
       if(isX) html += `<div class="xmark">${XMARK_SVG_MINI}</div>`;
       if(isQ) html += `<div class="xmark">${QMARK_SVG_MINI}</div>`;
       html += `</div>`;
@@ -3490,7 +3375,7 @@ function tutBoardHTML(spec){
       for(let i=0;i<3;i++) h += i < spec.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
       heartsHtml = `<div class="tgo-hearts">${h}</div>`;
     }
-    html += `<div class="tut-gameover-overlay"><div class="tgo-owl">${OWL_SAD_SVG}</div><div class="tgo-title">Out of hearts</div><div class="tgo-sub">Game over</div>${heartsHtml}</div>`;
+    html += `<div class="tut-gameover-overlay"><div class="tgo-owl">${owlIconHTML('sad')}</div><div class="tgo-title">Out of hearts</div><div class="tgo-sub">Game over</div>${heartsHtml}</div>`;
   }
   return html;
 }
@@ -3535,7 +3420,7 @@ const tutText = document.getElementById('tutText');
 const tutDots = document.getElementById('tutDots');
 const tutPrevBtn = document.getElementById('tutPrevBtn');
 const tutNextBtn = document.getElementById('tutNextBtn');
-document.getElementById('tutOwlIcon').innerHTML = OWL_SVG;
+document.getElementById('tutOwlIcon').innerHTML = owlIconHTML();
 
 let tutPage = 0;
 
@@ -3544,7 +3429,7 @@ function renderTutorialPage(){
   tutTitle.textContent = page.title;
   tutText.textContent = page.text;
   tutBoardBox.innerHTML = tutBoardHTML(page.board);
-  document.getElementById('tutOwlIcon').innerHTML = page.icon === 'sad' ? OWL_SAD_SVG : OWL_SVG;
+  document.getElementById('tutOwlIcon').innerHTML = page.icon === 'sad' ? owlIconHTML('sad') : owlIconHTML();
   if(typeof page.hearts === 'number'){
     let h = '';
     for(let i=0;i<3;i++) h += i < page.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
@@ -3688,7 +3573,7 @@ function renderNolinesPage(){
   nolinesText.textContent = page.text;
   nolinesBoardBox.innerHTML = tutBoardHTML(page.board);
   if(nolinesPage === 0){
-    nolinesOwlIcon.innerHTML = page.icon === 'sad' ? OWL_SAD_SVG : (page.icon === 'happy' ? OWL_HAPPY_SVG : OWL_SVG);
+    nolinesOwlIcon.innerHTML = page.icon === 'sad' ? owlIconHTML('sad') : (page.icon === 'happy' ? owlIconHTML('happy') : owlIconHTML());
     nolinesOwlIcon.style.display = '';
   } else {
     nolinesOwlIcon.innerHTML = '';
@@ -3817,9 +3702,9 @@ document.addEventListener('pointermove', onDocPointerMove);
 document.addEventListener('pointerup', onDocPointerUp);
 document.addEventListener('pointercancel', onDocPointerUp);
 
-document.getElementById('owlModeIcon').innerHTML = OWL_SVG;
-document.getElementById('winOwlIcon').innerHTML = OWL_HAPPY_SVG;
-document.getElementById('loseOwlIcon').innerHTML = OWL_SAD_SVG;
+document.getElementById('owlModeIcon').innerHTML = owlIconHTML();
+document.getElementById('winOwlIcon').innerHTML = owlIconHTML('happy');
+document.getElementById('loseOwlIcon').innerHTML = owlIconHTML('sad');
 
 // reflect any restored music preference (mute state) on the header icon right away,
 // without needing to open the music panel first
