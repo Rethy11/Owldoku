@@ -547,18 +547,17 @@
   #cityBg .city-haze{
     position:absolute; inset:-12%;
     background:
-      radial-gradient(circle at 20% 72%, rgba(255,110,170,0.16), transparent 42%),
-      radial-gradient(circle at 80% 66%, rgba(90,200,255,0.14), transparent 44%),
-      radial-gradient(circle at 50% 88%, rgba(232,163,61,0.12), transparent 48%);
-    mix-blend-mode:screen;
+      radial-gradient(circle at 20% 72%, rgba(255,110,170,0.10), transparent 42%),
+      radial-gradient(circle at 80% 66%, rgba(90,200,255,0.09), transparent 44%),
+      radial-gradient(circle at 50% 88%, rgba(232,163,61,0.08), transparent 48%);
     animation: cbHazePulse 13s ease-in-out infinite alternate;
     will-change: opacity;
   }
   @keyframes cbHazePulse{ 0%{opacity:0.5;} 100%{opacity:0.9;} }
 
   #cityBg svg.city-layer{ position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible; }
-  #cityBg .city-far{ opacity:0.30; filter:blur(0.7px); }
-  #cityBg .city-mid{ opacity:0.52; filter:blur(0.2px); }
+  #cityBg .city-far{ opacity:0.30; }
+  #cityBg .city-mid{ opacity:0.52; }
   #cityBg .city-neon{ opacity:0.7; }
   #cityBg .city-near{ opacity:0.62; }
   /* Each layer's skyline is drawn twice side by side (tile A + tile B, the second
@@ -580,10 +579,13 @@
     50%{ opacity:var(--wo,0.8); }
     72%{ opacity:0.5; }
   }
-  #cityBg .neon-sign{ animation:cbNeonPulse var(--ndur,4.5s) ease-in-out var(--nd,0s) infinite; }
+  #cityBg .neon-sign{
+    filter:drop-shadow(0 0 8px currentColor);
+    animation:cbNeonPulse var(--ndur,4.5s) ease-in-out var(--nd,0s) infinite;
+  }
   @keyframes cbNeonPulse{
-    0%,100%{ opacity:0.5; filter:drop-shadow(0 0 5px currentColor); }
-    50%{ opacity:1; filter:drop-shadow(0 0 12px currentColor) drop-shadow(0 0 24px currentColor); }
+    0%,100%{ opacity:0.55; }
+    50%{ opacity:1; }
   }
   #cityBg .beacon{ animation:cbBeacon 2.4s steps(1) infinite; }
   @keyframes cbBeacon{ 0%,49%{opacity:1;} 50%,100%{opacity:0.08;} }
@@ -616,7 +618,7 @@
      a gradient stroke that fades top and bottom for a soft comet-tail. */
   #cityBg svg.city-rain-layer{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
   #cityBg .city-rain-back{ opacity:0.32; }
-  #cityBg .city-rain-front{ opacity:0.52; filter:blur(0.6px); }
+  #cityBg .city-rain-front{ opacity:0.52; }
   #cityBg .drop{
     animation-name:cbDropFall; animation-timing-function:linear; animation-iteration-count:infinite;
     will-change:transform;
@@ -628,8 +630,8 @@
 
 
   #cityBg .city-puddle{ position:absolute; left:0; right:0; bottom:0; height:14%; overflow:hidden; }
-  #cityBg .city-puddle .blob{ position:absolute; bottom:-20%; height:140%; filter:blur(14px); mix-blend-mode:screen; animation:cbPuddle 6s ease-in-out infinite alternate; }
-  @keyframes cbPuddle{ 0%{opacity:0.2;} 100%{opacity:0.45;} }
+  #cityBg .city-puddle .blob{ position:absolute; bottom:-20%; height:140%; filter:blur(14px); animation:cbPuddle 6s ease-in-out infinite alternate; }
+  @keyframes cbPuddle{ 0%{opacity:0.12;} 100%{opacity:0.28;} }
 
   #cityBg .city-vignette{
     position:absolute; inset:0;
@@ -774,7 +776,7 @@
             x:wx, y:wy, width:cellW*0.5, height:cellH*0.56, rx:1,
             fill: pick(litColors), opacity:baseOpacity
           });
-          if(lit && Math.random() < 0.16){
+          if(lit && Math.random() < 0.08){
             rect.setAttribute('class','win');
             rect.style.setProperty('--d', rnd(0,10).toFixed(2)+'s');
             rect.style.setProperty('--fdur', rnd(4,9).toFixed(2)+'s');
@@ -912,13 +914,25 @@
       svg.appendChild(line);
     }
   }
-  buildRain(document.getElementById('cityRainBack'), 130, {
+  buildRain(document.getElementById('cityRainBack'), 70, {
     lenMin:34, lenMax:68, wMin:1, wMax:1.6, opMin:0.16, opMax:0.34,
     angleDeg:9, durMin:1.3, durMax:2.1, travel:1150, gradId:'rainGradBack'
   });
-  buildRain(document.getElementById('cityRainFront'), 85, {
+  buildRain(document.getElementById('cityRainFront'), 45, {
     lenMin:58, lenMax:118, wMin:1.6, wMax:2.8, opMin:0.26, opMax:0.5,
     angleDeg:14, durMin:0.7, durMax:1.25, travel:1150, gradId:'rainGradFront'
+  });
+
+  /* Pause every cityBg animation while the tab/app is backgrounded (screen
+     locked, app switched away, etc). Most browsers already throttle rAF and
+     timers in that state, but CSS animations keep ticking, so this saves
+     real battery/CPU on top of that once the user comes back. */
+  document.addEventListener('visibilitychange', function(){
+    const cityBg = document.getElementById('cityBg');
+    if(!cityBg) return;
+    cityBg.getAnimations({subtree:true}).forEach(function(a){
+      if(document.hidden) a.pause(); else a.play();
+    });
   });
 })();
 </script>
