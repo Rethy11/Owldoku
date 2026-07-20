@@ -414,6 +414,10 @@
     font-family:'JetBrains Mono', monospace; font-size:0.66rem; opacity:0.6; margin-right:6px;
   }
   .music-song-note{ color:var(--accent); }
+  .music-unavailable{
+    font-size:0.78rem; color:var(--ink-dim); text-align:center;
+    padding:14px 10px; line-height:1.4;
+  }
 
   #winOverlay.show .card{ animation: winPop 0.55s cubic-bezier(0.22,1.1,0.32,1.2); }
   @keyframes winPop{
@@ -1221,10 +1225,10 @@
 
 <!-- Generative song data, one file per track — see the SONGS array in the
      script below for how these are consumed. -->
-<script src="music/midnight-in-tokyo-rain.js"></script>
-<script src="music/amber-hush.js"></script>
-<script src="music/paper-lantern-drift.js"></script>
-<script src="music/late-bus-home.js"></script>
+<script src="music/midnight-in-tokyo-rain.js" onerror="console.warn('Music: failed to load midnight-in-tokyo-rain.js')"></script>
+<script src="music/amber-hush.js" onerror="console.warn('Music: failed to load amber-hush.js')"></script>
+<script src="music/paper-lantern-drift.js" onerror="console.warn('Music: failed to load paper-lantern-drift.js')"></script>
+<script src="music/late-bus-home.js" onerror="console.warn('Music: failed to load late-bus-home.js')"></script>
 
 <script>
 /* ---------- lock scrolling / zooming / selection ---------- */
@@ -1592,12 +1596,29 @@ const Music = (function(){
 
   // Song data now lives one-file-per-song in /music (loaded via <script>
   // tags above); this array just references them in playlist order.
+  //
+  // SAFETY NET: if any of those <script> tags fails to load (network
+  // hiccup, blocked request, bad deploy, etc.), its SONG_* global is never
+  // declared. Referencing an undeclared identifier directly in this array
+  // would throw a ReferenceError right here at top-level script execution,
+  // which would abort the rest of this <script> block — including game
+  // setup code far below that has nothing to do with music. So instead we
+  // look each one up defensively and drop any that didn't load, rather than
+  // letting a missing song file take the whole game down with it.
+  // `typeof` is the one safe way to test whether an identifier exists
+  // without throwing — it works no matter whether the song file declared
+  // its export with const/let (which, unlike var, doesn't attach to
+  // `window`) or wasn't loaded at all.
   const SONGS = [
-    SONG_MIDNIGHT_IN_TOKYO_RAIN,
-    SONG_AMBER_HUSH,
-    SONG_PAPER_LANTERN_DRIFT,
-    SONG_LATE_BUS_HOME
-  ];
+    (typeof SONG_MIDNIGHT_IN_TOKYO_RAIN !== 'undefined' ? SONG_MIDNIGHT_IN_TOKYO_RAIN : null),
+    (typeof SONG_AMBER_HUSH !== 'undefined' ? SONG_AMBER_HUSH : null),
+    (typeof SONG_PAPER_LANTERN_DRIFT !== 'undefined' ? SONG_PAPER_LANTERN_DRIFT : null),
+    (typeof SONG_LATE_BUS_HOME !== 'undefined' ? SONG_LATE_BUS_HOME : null)
+  ].filter(Boolean);
+  const musicAvailable = SONGS.length > 0;
+  if(!musicAvailable){
+    console.warn('Music: no song data loaded — music disabled, game continues without it.');
+  }
 
   const MUSIC_PREFS_KEY = 'owldoku_music_prefs';
   (function restoreMusicPrefs(){
@@ -1605,7 +1626,7 @@ const Music = (function(){
       const raw = localStorage.getItem(MUSIC_PREFS_KEY);
       if(!raw) return;
       const prefs = JSON.parse(raw);
-      if(typeof prefs.songIndex === 'number'){
+      if(typeof prefs.songIndex === 'number' && SONGS.length > 0){
         const n = SONGS.length;
         songIndex = ((prefs.songIndex % n) + n) % n;
       }
@@ -1620,8 +1641,11 @@ const Music = (function(){
     }catch(e){ /* storage unavailable — ignore */ }
   }
 
-  function currentSong(){ return SONGS[songIndex]; }
-  function spb(){ return 60/currentSong().bpm; }
+  function currentSong(){ return SONGS[songIndex] || null; }
+  function spb(){
+    const song = currentSong();
+    return 60/(song ? song.bpm : 80);
+  }
   function effectiveGain(){ return muted ? 0.0001 : Math.max(0.0001, volume*MAX_GAIN); }
 
   function clearAutoAdvance(){
@@ -1673,6 +1697,7 @@ const Music = (function(){
   }
 
   function build(){
+    if(!musicAvailable) return;
     ctx = AudioCore.ensure();
     if(!ctx || master) return;
     const bus = AudioCore.getBus();
@@ -1872,18 +1897,33 @@ const Music = (function(){
   }
 
   function schedulerLoop(){
-    const s = spb();
-    while(nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD){
-      scheduleBeat(beatCount, nextNoteTime);
-      nextNoteTime += s;
-      beatCount++;
+    try{
+      const s = spb();
+      while(nextNoteTime < ctx.currentTime + SCHEDULE_AHEAD){
+        scheduleBeat(beatCount, nextNoteTime);
+        nextNoteTime += s;
+        beatCount++;
+      }
+    }catch(e){
+      // Never let a scheduling glitch keep throwing every 30ms — stop music
+      // cleanly and let the rest of the game carry on.
+      console.warn('Music: scheduler error, stopping music.', e);
+      stop();
     }
   }
 
   function start(){
-    if(running || starting) return;
+    if(!musicAvailable || running || starting) return;
     starting = true;
-    build();
+    try{
+      build();
+    }catch(e){
+      // Any failure setting up the audio graph shouldn't take the rest of
+      // the game down with it — just give up on music for this session.
+      console.warn('Music: failed to build audio engine, disabling music.', e);
+      starting = false;
+      return;
+    }
     if(!ctx){ starting = false; return; }
     // On iOS/Safari, starting nodes before resume() has actually taken
     // effect can silently drop that first attempt's audio — wait for the
@@ -1891,17 +1931,23 @@ const Music = (function(){
     AudioCore.ready().then(()=>{
       starting = false;
       if(running) return; // already started by another call while waiting
-      started = true; running = true;
-      nextNoteTime = ctx.currentTime + 0.05;
-      beatCount = 0; chordIdx = 0; chordStep = -1;
-      try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
-      applyRainTarget();
-      delay.delayTime.value = spb()*0.75;
-      schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS);
-      master.gain.cancelScheduledValues(ctx.currentTime);
-      master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-      master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 1.2);
-      armAutoAdvance();
+      try{
+        started = true; running = true;
+        nextNoteTime = ctx.currentTime + 0.05;
+        beatCount = 0; chordIdx = 0; chordStep = -1;
+        try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
+        applyRainTarget();
+        delay.delayTime.value = spb()*0.75;
+        schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS);
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+        master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 1.2);
+        armAutoAdvance();
+      }catch(e){
+        console.warn('Music: failed to start playback, disabling music.', e);
+        running = false;
+        if(schedulerId){ clearInterval(schedulerId); schedulerId = null; }
+      }
     }).catch(()=>{ starting = false; });
   }
 
@@ -1941,15 +1987,17 @@ const Music = (function(){
   function prev(){ switchSong(songIndex - 1); }
 
   return {
-    autoStart(){ if(!muted && !started) start(); },
+    autoStart(){ if(musicAvailable && !muted && !started) start(); },
     toggleMute(){
+      if(!musicAvailable) return muted; // stays "muted"/inert, nothing to toggle
       muted = !muted;
       if(muted) stop(); else start();
       saveMusicPrefs();
       return muted;
     },
-    isOn(){ return !muted; },
+    isOn(){ return musicAvailable && !muted; },
     setVolume(v){
+      if(!musicAvailable) return;
       volume = Math.max(0, Math.min(1, v));
       if(ctx && master && running && !muted){
         master.gain.cancelScheduledValues(ctx.currentTime);
@@ -1959,19 +2007,23 @@ const Music = (function(){
       saveMusicPrefs();
     },
     toggleLoop(){
+      if(!musicAvailable) return loopSong;
       loopSong = !loopSong;
       armAutoAdvance();
       saveMusicPrefs();
       return loopSong;
     },
-    next(){ next(); },
-    prev(){ prev(); },
-    selectSong(i){ switchSong(i); },
-    getSongs(){ return SONGS.map(s => ({ name: s.name })); },
+    next(){ if(musicAvailable) next(); },
+    prev(){ if(musicAvailable) prev(); },
+    selectSong(i){ if(musicAvailable) switchSong(i); },
+    getSongs(){ return musicAvailable ? SONGS.map(s => ({ name: s.name })) : []; },
+    isAvailable(){ return musicAvailable; },
     getState(){
+      const song = currentSong();
       return {
-        songIndex, songName: currentSong().name,
-        muted, loop: loopSong, volume
+        available: musicAvailable,
+        songIndex, songName: song ? song.name : 'Music unavailable',
+        muted: musicAvailable ? muted : true, loop: loopSong, volume
       };
     }
   };
@@ -3337,6 +3389,17 @@ function renderMusicPanel(){
   musicVolume.value = Math.round(state.volume*100);
   musicToggleBtn.textContent = state.muted ? '🔇' : '🔊';
   musicToggleBtn.classList.toggle('on', !state.muted);
+  // Music failed to load (or every song was unavailable) — disable the
+  // controls instead of leaving a panel full of dead buttons and an empty
+  // song list, and don't offer a toggle icon for a feature that can't work.
+  [musicPrevBtn, musicNextBtn, musicLoopBtn, musicMuteBtn, musicVolume].forEach(el=>{
+    el.disabled = !state.available;
+  });
+  musicToggleBtn.style.display = state.available ? '' : 'none';
+  if(!state.available){
+    musicSongList.innerHTML = `<div class="music-unavailable">Music couldn't be loaded this session — the game works fine without it.</div>`;
+    return;
+  }
   musicSongList.innerHTML = Music.getSongs().map((s,i)=>
     `<button type="button" class="music-song-btn${i===state.songIndex?' playing':''}" data-i="${i}">
        <span><span class="music-song-num">${String(i+1).padStart(2,'0')}</span>${s.name}</span>
@@ -3346,6 +3409,7 @@ function renderMusicPanel(){
 }
 
 function openMusicPanel(){
+  if(!Music.isAvailable()) return; // toggle icon is hidden in this case, but guard anyway
   AudioCore.ensure();
   Music.autoStart();
   renderMusicPanel();
