@@ -1604,12 +1604,21 @@ const Music = (function(){
   // without throwing — it works no matter whether the song file declared
   // its export with const/let (which, unlike var, doesn't attach to
   // `window`) or wasn't loaded at all.
+  // Real recordings (mp3/wav) played back as-is rather than generated note-by-note.
+  // `type:'sample'` is how start()/stop()/switchSong() tell these apart from the
+  // procedural songs above and route them to playSample() instead of the scheduler.
+  const SAMPLE_SONGS = [
+    { type:'sample', name:'River',        src:'music/river.mp3' },
+    { type:'sample', name:'Evana Sorel',  src:'music/evana-sorel.mp3' },
+    { type:'sample', name:'Only You',     src:'music/only-you.mp3' }
+  ];
+
   const SONGS = [
     (typeof SONG_MIDNIGHT_IN_TOKYO_RAIN !== 'undefined' ? SONG_MIDNIGHT_IN_TOKYO_RAIN : null),
     (typeof SONG_AMBER_HUSH !== 'undefined' ? SONG_AMBER_HUSH : null),
     (typeof SONG_PAPER_LANTERN_DRIFT !== 'undefined' ? SONG_PAPER_LANTERN_DRIFT : null),
     (typeof SONG_LATE_BUS_HOME !== 'undefined' ? SONG_LATE_BUS_HOME : null)
-  ].filter(Boolean);
+  ].filter(Boolean).concat(SAMPLE_SONGS);
   const musicAvailable = SONGS.length > 0;
   if(!musicAvailable){
     console.warn('Music: no song data loaded — music disabled, game continues without it.');
@@ -1639,7 +1648,7 @@ const Music = (function(){
   function currentSong(){ return SONGS[songIndex] || null; }
   function spb(){
     const song = currentSong();
-    return 60/(song ? song.bpm : 80);
+    return 60/((song && song.bpm) ? song.bpm : 80);
   }
   function effectiveGain(){ return muted ? 0.0001 : Math.max(0.0001, volume*MAX_GAIN); }
 
@@ -1648,8 +1657,57 @@ const Music = (function(){
   }
   function armAutoAdvance(){
     clearAutoAdvance();
+    // Sample tracks advance off their own 'ended' event (see playSample), not
+    // this timer — real recordings know their own length, generated ones don't.
+    if(currentSong() && currentSong().type === 'sample') return;
     if(loopSong || !running || muted) return;
     autoAdvanceId = setTimeout(()=>{ next(); }, SONG_LENGTH_MS);
+  }
+
+  /* ---------- real-audio (mp3/wav) playback ----------
+     One shared <audio> element, routed through Web Audio (createMediaElementSource)
+     so it lands on the same `master` bus as the generated songs — volume, mute,
+     and the reverb send all keep working without any special-casing elsewhere. */
+  let sampleEl = null;
+  let sampleSrcNode = null;
+  let sampleManualStop = false; // set right before we pause/replace src, so the
+                                 // 'ended'/pause handlers don't mistake it for a
+                                 // natural end and auto-advance on top of it.
+
+  function ensureSampleEl(){
+    if(sampleEl) return;
+    sampleEl = new Audio();
+    sampleEl.preload = 'auto';
+    sampleEl.addEventListener('ended', ()=>{
+      if(sampleManualStop){ sampleManualStop = false; return; }
+      next(); // natural end of the recording — advance the playlist
+    });
+  }
+
+  function connectSampleEl(){
+    if(sampleSrcNode || !ctx) return;
+    try{
+      sampleSrcNode = ctx.createMediaElementSource(sampleEl);
+      sampleSrcNode.connect(master);
+    }catch(e){ console.warn('Music: failed to route sample audio, disabling music.', e); }
+  }
+
+  function playSample(song){
+    ensureSampleEl();
+    connectSampleEl();
+    sampleManualStop = true;
+    sampleEl.pause();
+    sampleEl.src = song.src;
+    sampleEl.loop = loopSong; // loop toggle repeats this one track instead of advancing
+    sampleEl.currentTime = 0;
+    sampleEl.play().then(()=>{ sampleManualStop = false; })
+      .catch(e => console.warn('Music: sample playback failed, skipping.', e));
+  }
+
+  function stopSample(){
+    if(!sampleEl) return;
+    sampleManualStop = true;
+    sampleEl.pause();
   }
 
   function applyRainTarget(){
@@ -1926,17 +1984,23 @@ const Music = (function(){
     AudioCore.ready().then(()=>{
       starting = false;
       if(running) return; // already started by another call while waiting
+      const song = currentSong();
       try{
         started = true; running = true;
+        master.gain.cancelScheduledValues(ctx.currentTime);
+        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+        master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 1.2);
+        if(song && song.type === 'sample'){
+          playSample(song);
+          armAutoAdvance();
+          return;
+        }
         nextNoteTime = ctx.currentTime + 0.05;
         beatCount = 0; chordIdx = 0; chordStep = -1;
         try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
         applyRainTarget();
         delay.delayTime.value = spb()*0.75;
         schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS);
-        master.gain.cancelScheduledValues(ctx.currentTime);
-        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
-        master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 1.2);
         armAutoAdvance();
       }catch(e){
         console.warn('Music: failed to start playback, disabling music.', e);
@@ -1955,6 +2019,7 @@ const Music = (function(){
       master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
       master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 1.2);
     }
+    stopSample();
     clearInterval(schedulerId);
   }
 
@@ -1962,6 +2027,7 @@ const Music = (function(){
     const n = SONGS.length;
     songIndex = ((idx % n) + n) % n;
     beatCount = 0; chordIdx = 0; chordStep = -1;
+    const song = currentSong();
     if(ctx && master){
       const now = ctx.currentTime;
       if(running){
@@ -1971,8 +2037,21 @@ const Music = (function(){
         master.gain.linearRampToValueAtTime(effectiveGain(), now + 0.85);
         nextNoteTime = ctx.currentTime + 0.35;
       }
-      delay.delayTime.value = spb()*0.75;
-      applyRainTarget();
+      if(song.type !== 'sample'){
+        delay.delayTime.value = spb()*0.75;
+        applyRainTarget();
+      }
+      if(running){
+        // Whichever engine was playing the old track needs to stop before
+        // the other one starts, so procedural and sample tracks never overlap.
+        if(song.type === 'sample'){
+          clearInterval(schedulerId);
+          setTimeout(()=>{ if(running) playSample(song); }, 320); // wait out the fade-down above
+        } else {
+          stopSample();
+          setTimeout(()=>{ if(running) schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS); }, 320);
+        }
+      }
     }
     armAutoAdvance();
     saveMusicPrefs();
@@ -2004,6 +2083,7 @@ const Music = (function(){
     toggleLoop(){
       if(!musicAvailable) return loopSong;
       loopSong = !loopSong;
+      if(sampleEl && currentSong() && currentSong().type === 'sample') sampleEl.loop = loopSong;
       armAutoAdvance();
       saveMusicPrefs();
       return loopSong;
