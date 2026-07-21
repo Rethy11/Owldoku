@@ -2049,6 +2049,7 @@ const Music = (function(){
           setTimeout(()=>{ if(running) playSample(song); }, 320); // wait out the fade-down above
         } else {
           stopSample();
+          clearInterval(schedulerId);
           setTimeout(()=>{ if(running) schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS); }, 320);
         }
       }
