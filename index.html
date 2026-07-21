@@ -435,10 +435,13 @@
      list meets the Done button. Fades in/out (rather than always showing)
      so it only appears when there's actually something left to scroll to. */
   .music-song-fade{
-    position:absolute; left:0; right:0; bottom:0; height:24px;
+    /* Bleeds out to the music card's own edges (negative margin equal to
+       the card's horizontal padding) rather than stopping at the song
+       list's box, so it reads as a fade on the panel itself instead of a
+       rounded strip clipped inside it. */
+    position:absolute; left:-26px; right:-26px; bottom:0; height:24px;
     pointer-events:none;
     background:linear-gradient(to bottom, rgba(44,36,64,0), var(--surface) 80%);
-    border-radius:0 0 10px 10px;
     opacity:0;
     transition:opacity 0.2s ease;
   }
@@ -1022,11 +1025,14 @@
       svg.appendChild(line);
     }
   }
-  buildRain(document.getElementById('cityRainBack'), 35, {
+  // Particle counts halved from their original 35/22 — rain is 57
+  // individually-animating elements that repaint for as long as the game is
+  // open, one of the bigger sustained compositing costs in the whole scene.
+  buildRain(document.getElementById('cityRainBack'), 18, {
     lenMin:34, lenMax:68, wMin:1, wMax:1.6, opMin:0.16, opMax:0.34,
     angleDeg:9, durMin:1.3, durMax:2.1, travel:1150, gradId:'rainGradBack'
   });
-  buildRain(document.getElementById('cityRainFront'), 22, {
+  buildRain(document.getElementById('cityRainFront'), 12, {
     lenMin:58, lenMax:118, wMin:1.6, wMax:2.8, opMin:0.26, opMax:0.5,
     angleDeg:14, durMin:0.7, durMax:1.25, travel:1150, gradId:'rainGradFront'
   });
@@ -1880,7 +1886,12 @@ const Music = (function(){
 
     // reverb send (soft room, rain-outside-the-window ambience)
     reverb = ctx.createConvolver();
-    reverb.buffer = makeImpulse(ctx, 3.2, 2.6);
+    // Impulse length drives the cost of every sample the convolver
+    // processes for as long as music plays (real-time convolution is one of
+    // the heaviest things Web Audio can do on a phone) — 1.6s/2.0 decay
+    // still reads as a soft room tail, at roughly half the sustained CPU
+    // cost of the original 3.2s/2.6 impulse.
+    reverb.buffer = makeImpulse(ctx, 1.6, 2.0);
     reverbSend = ctx.createGain(); reverbSend.gain.value = 0.55;
     reverbSend.connect(reverb); reverb.connect(master);
 
@@ -3574,7 +3585,7 @@ musicPrevBtn.innerHTML = ICON_SKIP_PREV;
 musicNextBtn.innerHTML = ICON_SKIP_NEXT;
 musicLoopBtn.innerHTML = ICON_REPEAT;
 
-function renderMusicPanel(){
+function renderMusicPanel(smoothScroll){
   const state = Music.getState();
   musicNowName.textContent = state.songName;
   musicMuteBtn.textContent = state.muted ? '🔇' : '🔊';
@@ -3608,7 +3619,7 @@ function renderMusicPanel(){
   // list back on whichever song is actually playing (also covers the "just
   // opened the panel" and "song auto-advanced" cases, since both end up
   // calling this same render function) and then re-check the fade.
-  scrollToPlayingSong();
+  scrollToPlayingSong(smoothScroll);
   updateSongFade();
 }
 
@@ -3628,9 +3639,9 @@ function capSongListHeight(){
 // capping the list to 5 rows above is that the rest are reachable by
 // scrolling, so whichever one is actually playing shouldn't ever be hidden
 // off-screen without the player realizing it's there.
-function scrollToPlayingSong(){
+function scrollToPlayingSong(smooth){
   const el = musicSongList.querySelector('.music-song-btn.playing');
-  if(el) el.scrollIntoView({ block:'nearest' });
+  if(el) el.scrollIntoView({ block:'nearest', behavior: smooth ? 'smooth' : 'auto' });
 }
 
 // Shows the bottom fade only while there's more list below the current
@@ -3653,8 +3664,8 @@ function closeMusicPanel(){ musicOverlay.classList.remove('show'); }
 
 musicToggleBtn.addEventListener('click', ()=>{ Sound.button(); openMusicPanel(); });
 musicCloseBtn.addEventListener('click', ()=>{ Sound.button(); closeMusicPanel(); });
-musicPrevBtn.addEventListener('click', ()=>{ Sound.button(); Music.prev(); renderMusicPanel(); });
-musicNextBtn.addEventListener('click', ()=>{ Sound.button(); Music.next(); renderMusicPanel(); });
+musicPrevBtn.addEventListener('click', ()=>{ Sound.button(); Music.prev(); renderMusicPanel(true); });
+musicNextBtn.addEventListener('click', ()=>{ Sound.button(); Music.next(); renderMusicPanel(true); });
 musicLoopBtn.addEventListener('click', ()=>{ Sound.button(); Music.toggleLoop(); renderMusicPanel(); });
 musicMuteBtn.addEventListener('click', ()=>{ Music.toggleMute(); renderMusicPanel(); });
 musicVolume.addEventListener('input', ()=>{ Music.setVolume(musicVolume.value/100); });
@@ -3663,13 +3674,13 @@ musicSongList.addEventListener('click', (e)=>{
   if(!btn) return;
   Sound.button();
   Music.selectSong(parseInt(btn.dataset.i, 10));
-  renderMusicPanel();
+  renderMusicPanel(true);
 });
 // Covers auto-advance (a track finishing on its own, or an mp3 sample's
 // natural end) — renderMusicPanel() is cheap to re-run even while the panel
 // is closed, and it's what keeps "now playing" and the auto-scroll correct
 // the next time the panel opens.
-Music.onSongChange(()=>{ renderMusicPanel(); });
+Music.onSongChange(()=>{ renderMusicPanel(true); });
 
 /* ---------- tutorial: paginated, illustrated rule pages ---------- */
 const XMARK_SVG_MINI = `<svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
