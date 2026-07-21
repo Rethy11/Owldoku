@@ -2046,6 +2046,15 @@ const Music = (function(){
         master.gain.cancelScheduledValues(ctx.currentTime);
         master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
         master.gain.linearRampToValueAtTime(effectiveGain(), ctx.currentTime + 1.2);
+        // Rain is a shared ambience layer, independent of whichever song
+        // starts first — always start its source nodes and set its target
+        // gain here, even if the very first song is an mp3 sample. Gating
+        // this on "not a sample" meant a session that started on an mp3
+        // would never start these nodes at all (and a node can only be
+        // started once), leaving rain permanently silent for the rest of
+        // the session even after switching to a rain-enabled song later.
+        try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
+        applyRainTarget();
         if(song && song.type === 'sample'){
           playSample(song);
           armAutoAdvance();
@@ -2053,8 +2062,6 @@ const Music = (function(){
         }
         nextNoteTime = ctx.currentTime + 0.05;
         beatCount = 0; chordIdx = 0; chordStep = -1;
-        try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
-        applyRainTarget();
         delay.delayTime.value = spb()*0.75;
         startScheduler();
         armAutoAdvance();
@@ -2095,8 +2102,8 @@ const Music = (function(){
       }
       if(song.type !== 'sample'){
         delay.delayTime.value = spb()*0.75;
-        applyRainTarget();
       }
+      applyRainTarget();
       if(running){
         // Whichever engine was playing the old track needs to stop before
         // the other one starts, so procedural and sample tracks never overlap.
