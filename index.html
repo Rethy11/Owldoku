@@ -1578,7 +1578,32 @@ const Music = (function(){
   let delay = null, delayFeedback = null, delaySend = null;
   let rainSrc = null, rainLfoOsc = null;
   let running = false, muted = false, started = false, starting = false;
-  let schedulerId = null;
+  // Background tabs throttle (or fully suspend) setInterval on the main
+  // thread, but the lookahead scheduler needs a reliable ~30ms tick to keep
+  // feeding the Web Audio clock — otherwise it silently runs dry and the
+  // generated songs go quiet, even though the AudioContext itself is still
+  // "running" (this is why the mp3 samples, which don't depend on JS timer
+  // ticks at all, kept playing fine in the background while these didn't).
+  // A Worker's timers aren't subject to that same page-visibility
+  // throttling, so the actual interval lives there and just posts ticks back.
+  let schedulerRunning = false;
+  let tickWorker = null;
+  function ensureTickWorker(){
+    if(tickWorker) return;
+    const code = "let id=null; onmessage=function(e){ if(e.data==='start'){ if(id) return; id=setInterval(function(){ postMessage('tick'); }, " + LOOKAHEAD_MS + "); } else if(e.data==='stop'){ clearInterval(id); id=null; } };";
+    const blob = new Blob([code], { type:'application/javascript' });
+    tickWorker = new Worker(URL.createObjectURL(blob));
+    tickWorker.onmessage = (e)=>{ if(e.data==='tick' && schedulerRunning) schedulerLoop(); };
+  }
+  function startScheduler(){
+    ensureTickWorker();
+    schedulerRunning = true;
+    tickWorker.postMessage('start');
+  }
+  function stopScheduler(){
+    schedulerRunning = false;
+    if(tickWorker) tickWorker.postMessage('stop');
+  }
   let songIndex = 0, loopSong = false, volume = 0.1;
   const MAX_GAIN = 0.85;
   const SONG_LENGTH_MS = 150000; // 2:30 — same "length" for every song
@@ -1665,49 +1690,80 @@ const Music = (function(){
   }
 
   /* ---------- real-audio (mp3/wav) playback ----------
-     One shared <audio> element, routed through Web Audio (createMediaElementSource)
-     so it lands on the same `master` bus as the generated songs — volume, mute,
-     and the reverb send all keep working without any special-casing elsewhere. */
-  let sampleEl = null;
-  let sampleSrcNode = null;
-  let sampleManualStop = false; // set right before we pause/replace src, so the
-                                 // 'ended'/pause handlers don't mistake it for a
+     Each sample is fully fetched and decoded into an in-memory AudioBuffer
+     up front, then played with an AudioBufferSourceNode on the same
+     `master` bus as the generated songs. This used to stream through an
+     <audio> element via createMediaElementSource instead — simpler, but
+     that pipeline has to keep pulling decoded audio off the main thread in
+     real time, and this game occasionally does real work on that same
+     thread (puzzle generation, the impossible-mode repair loop). A brief
+     stall there could starve the media pipeline and produce an audible
+     stutter that isn't in the source file at all. A fully-decoded buffer,
+     once started, is scheduled entirely by the audio thread, so it can't
+     be touched by main-thread jank — same idea as the Worker-based
+     scheduler above, applied to the sample engine. */
+  let sampleBufferCache = {}; // src -> AudioBuffer, or a Promise<AudioBuffer> while loading
+  let sampleSourceNode = null;
+  let sampleGainNode = null;
+  let sampleManualStop = false; // set right before we stop/replace the current
+                                 // source, so onended doesn't mistake it for a
                                  // natural end and auto-advance on top of it.
+  let sampleRequestId = 0; // guards against a slow load finishing after a newer switch superseded it
 
-  function ensureSampleEl(){
-    if(sampleEl) return;
-    sampleEl = new Audio();
-    sampleEl.preload = 'auto';
-    sampleEl.addEventListener('ended', ()=>{
-      if(sampleManualStop){ sampleManualStop = false; return; }
-      next(); // natural end of the recording — advance the playlist
-    });
+  function loadSampleBuffer(song){
+    const cached = sampleBufferCache[song.src];
+    if(cached) return Promise.resolve(cached);
+    const p = fetch(song.src)
+      .then(r => r.arrayBuffer())
+      .then(data => ctx.decodeAudioData(data))
+      .then(buf => { sampleBufferCache[song.src] = buf; return buf; })
+      .catch(e => {
+        console.warn('Music: failed to load/decode sample, skipping.', e);
+        delete sampleBufferCache[song.src];
+        throw e;
+      });
+    sampleBufferCache[song.src] = p; // cache the in-flight promise too, so a rapid
+    return p;                        // double-switch doesn't kick off a second fetch
   }
 
-  function connectSampleEl(){
-    if(sampleSrcNode || !ctx) return;
-    try{
-      sampleSrcNode = ctx.createMediaElementSource(sampleEl);
-      sampleSrcNode.connect(master);
-    }catch(e){ console.warn('Music: failed to route sample audio, disabling music.', e); }
+  function ensureSampleGain(){
+    if(sampleGainNode) return;
+    sampleGainNode = ctx.createGain();
+    sampleGainNode.gain.value = 1;
+    sampleGainNode.connect(master);
+  }
+
+  function stopSampleSource(){
+    if(!sampleSourceNode) return;
+    sampleManualStop = true;
+    sampleSourceNode.onended = null;
+    try{ sampleSourceNode.stop(); }catch(e){}
+    try{ sampleSourceNode.disconnect(); }catch(e){}
+    sampleSourceNode = null;
   }
 
   function playSample(song){
-    ensureSampleEl();
-    connectSampleEl();
-    sampleManualStop = true;
-    sampleEl.pause();
-    sampleEl.src = song.src;
-    sampleEl.loop = loopSong; // loop toggle repeats this one track instead of advancing
-    sampleEl.currentTime = 0;
-    sampleEl.play().then(()=>{ sampleManualStop = false; })
-      .catch(e => console.warn('Music: sample playback failed, skipping.', e));
+    ensureSampleGain();
+    const requestId = ++sampleRequestId;
+    loadSampleBuffer(song).then(buffer=>{
+      // Bail out if another switch/stop happened while this was loading.
+      if(requestId !== sampleRequestId || !running) return;
+      stopSampleSource();
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.loop = loopSong; // loop toggle repeats this one track instead of advancing
+      src.connect(sampleGainNode);
+      src.onended = ()=>{
+        if(sampleManualStop){ sampleManualStop = false; return; }
+        next(); // natural end of the recording — advance the playlist
+      };
+      sampleSourceNode = src;
+      src.start(0);
+    }).catch(()=>{ /* already warned in loadSampleBuffer */ });
   }
 
   function stopSample(){
-    if(!sampleEl) return;
-    sampleManualStop = true;
-    sampleEl.pause();
+    stopSampleSource();
   }
 
   function applyRainTarget(){
@@ -2000,12 +2056,12 @@ const Music = (function(){
         try{ rainSrc.start(); rainLfoOsc.start(); }catch(e){}
         applyRainTarget();
         delay.delayTime.value = spb()*0.75;
-        schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS);
+        startScheduler();
         armAutoAdvance();
       }catch(e){
         console.warn('Music: failed to start playback, disabling music.', e);
         running = false;
-        if(schedulerId){ clearInterval(schedulerId); schedulerId = null; }
+        stopScheduler();
       }
     }).catch(()=>{ starting = false; });
   }
@@ -2020,7 +2076,7 @@ const Music = (function(){
       master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 1.2);
     }
     stopSample();
-    clearInterval(schedulerId);
+    stopScheduler();
   }
 
   function switchSong(idx){
@@ -2045,12 +2101,12 @@ const Music = (function(){
         // Whichever engine was playing the old track needs to stop before
         // the other one starts, so procedural and sample tracks never overlap.
         if(song.type === 'sample'){
-          clearInterval(schedulerId);
+          stopScheduler();
           setTimeout(()=>{ if(running) playSample(song); }, 320); // wait out the fade-down above
         } else {
           stopSample();
-          clearInterval(schedulerId);
-          setTimeout(()=>{ if(running) schedulerId = setInterval(schedulerLoop, LOOKAHEAD_MS); }, 320);
+          stopScheduler();
+          setTimeout(()=>{ if(running) startScheduler(); }, 320);
         }
       }
     }
@@ -2084,7 +2140,7 @@ const Music = (function(){
     toggleLoop(){
       if(!musicAvailable) return loopSong;
       loopSong = !loopSong;
-      if(sampleEl && currentSong() && currentSong().type === 'sample') sampleEl.loop = loopSong;
+      if(sampleSourceNode && currentSong() && currentSong().type === 'sample') sampleSourceNode.loop = loopSong;
       armAutoAdvance();
       saveMusicPrefs();
       return loopSong;
