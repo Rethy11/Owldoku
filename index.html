@@ -423,7 +423,7 @@
   }
   .music-song-list{
     display:flex; flex-direction:column; gap:5px;
-    max-height:min(46vh, 260px); overflow-y:auto; margin-bottom:14px;
+    overflow-y:auto; margin-bottom:14px;
   }
   .music-song-btn{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -1633,9 +1633,9 @@ const Music = (function(){
   // `type:'sample'` is how start()/stop()/switchSong() tell these apart from the
   // procedural songs above and route them to playSample() instead of the scheduler.
   const SAMPLE_SONGS = [
-    { type:'sample', name:'River',        src:'music/river.mp3' },
-    { type:'sample', name:'Evana Sorel',  src:'music/evana-sorel.mp3' },
-    { type:'sample', name:'Only You',     src:'music/only-you.mp3' }
+    { type:'sample', name:'The River — Issac Haines',   src:'music/river.mp3' },
+    { type:'sample', name:'Evana Sorel — Issac Haines', src:'music/evana-sorel.mp3' },
+    { type:'sample', name:'Only You — Issac Haines',    src:'music/only-you.mp3' }
   ];
 
   const SONGS = [
@@ -3514,6 +3514,19 @@ function renderMusicPanel(){
        ${i===state.songIndex ? '<span class="music-song-note" aria-hidden="true">♪</span>' : ''}
      </button>`
   ).join('');
+  capSongListHeight();
+}
+
+// Sizes the song list so exactly 5 rows are visible and any further songs
+// require scrolling, regardless of font size/zoom — measured from the
+// actual rendered row rather than an estimated pixel height.
+const VISIBLE_SONG_ROWS = 5;
+function capSongListHeight(){
+  const first = musicSongList.querySelector('.music-song-btn');
+  if(!first){ musicSongList.style.maxHeight = ''; return; }
+  const rowH = first.getBoundingClientRect().height;
+  const gap = parseFloat(getComputedStyle(musicSongList).rowGap) || 0;
+  musicSongList.style.maxHeight = (rowH*VISIBLE_SONG_ROWS + gap*(VISIBLE_SONG_ROWS-1)) + 'px';
 }
 
 function openMusicPanel(){
