@@ -424,6 +424,8 @@
   .music-song-list{
     display:flex; flex-direction:column; gap:5px;
     overflow-y:auto; margin-bottom:14px;
+    touch-action:pan-y; /* app-wide touch-action:none (see global resets) would
+                            otherwise block the scroll gesture here */
   }
   .music-song-btn{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
@@ -431,6 +433,7 @@
     font-family:'Space Grotesk', sans-serif; font-size:0.78rem; font-weight:500;
     padding:7px 12px; border-radius:10px; cursor:pointer;
     transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+    touch-action:pan-y; /* the buttons are the actual touch target inside the list */
   }
   .music-song-btn:hover{ border-color:var(--line-strong); }
   .music-song-btn.playing{ border-color:var(--accent); color:var(--ink); background:var(--accent-dim); }
@@ -1246,8 +1249,10 @@ document.addEventListener('touchmove', function(e){
   if(e.touches.length > 1){ e.preventDefault(); return; }
 }, { passive: false });
 
-// Prevent ctrl/cmd + wheel zoom and mouse-wheel page scroll
+// Prevent ctrl/cmd + wheel zoom and mouse-wheel page scroll — but not inside
+// the song list, which is meant to be wheel/trackpad-scrollable.
 document.addEventListener('wheel', function(e){
+  if(e.target.closest('.music-song-list')) return;
   e.preventDefault();
 }, { passive: false });
 
