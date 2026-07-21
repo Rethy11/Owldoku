@@ -421,12 +421,28 @@
     font-size:0.6rem; color:var(--ink-dim); letter-spacing:0.08em;
     text-transform:uppercase; margin-bottom:6px;
   }
+  .music-song-list-wrap{
+    position:relative;
+    margin-bottom:14px;
+  }
   .music-song-list{
     display:flex; flex-direction:column; gap:5px;
-    overflow-y:auto; margin-bottom:14px;
+    overflow-y:auto;
     touch-action:pan-y; /* app-wide touch-action:none (see global resets) would
                             otherwise block the scroll gesture here */
   }
+  /* Subtle hint that more songs sit below the visible rows, right where the
+     list meets the Done button. Fades in/out (rather than always showing)
+     so it only appears when there's actually something left to scroll to. */
+  .music-song-fade{
+    position:absolute; left:0; right:0; bottom:0; height:24px;
+    pointer-events:none;
+    background:linear-gradient(to bottom, rgba(44,36,64,0), var(--surface) 80%);
+    border-radius:0 0 10px 10px;
+    opacity:0;
+    transition:opacity 0.2s ease;
+  }
+  .music-song-fade.show{ opacity:1; }
   .music-song-btn{
     display:flex; align-items:center; justify-content:space-between; gap:8px;
     width:100%; text-align:left; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-dim);
@@ -1216,7 +1232,10 @@
       <span class="music-vol-ic">🔊</span>
     </div>
     <div class="music-song-label">Songs</div>
-    <div class="music-song-list" id="musicSongList"></div>
+    <div class="music-song-list-wrap">
+      <div class="music-song-list" id="musicSongList"></div>
+      <div class="music-song-fade" id="musicSongFade" aria-hidden="true"></div>
+    </div>
     <button class="btn primary" id="musicCloseBtn" style="width:100%;">Done</button>
   </div>
 </div>
@@ -1334,10 +1353,39 @@ const AudioCore = (function(){
     if(ctx.state === 'running') return Promise.resolve(ctx);
     return ctx.resume().then(()=>ctx);
   }
+  // Leaving the page for a while (switching apps, locking the screen, just
+  // backgrounding the tab) can do more than pause playback on mobile —
+  // browsers may fully close the shared AudioContext to save power rather
+  // than merely suspending it. Every node any module built on top of it
+  // (Sound's gain node, Music's whole graph, the sample player's source/gain
+  // nodes...) belongs to that now-dead context and is unusable — calling
+  // resume() on a closed context does nothing. Modules register a rebuild
+  // callback here so, on return, this one recovery path can throw away the
+  // dead context and let everyone rebuild on the fresh one, instead of each
+  // module needing its own visibility-change handling (and instead of the
+  // game silently losing audio, or throwing, until a manual reload).
+  const rebuildCallbacks = [];
+  function onRebuild(fn){ rebuildCallbacks.push(fn); }
+  function recoverFromBackground(){
+    if(!ctx) return; // audio never started this session — nothing to recover
+    if(ctx.state === 'closed'){
+      ctx = null; bus = null;
+      rebuildCallbacks.forEach(fn=>{ try{ fn(); }catch(e){} });
+    } else {
+      // 'suspended' normally, but Safari can also leave a context reporting
+      // 'running' while backgrounded and just not actually produce sound —
+      // resume() is a harmless no-op on an already-running context, so
+      // always call it rather than trying to trust the reported state.
+      ctx.resume().catch(()=>{});
+    }
+  }
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) recoverFromBackground(); });
+  window.addEventListener('pageshow', recoverFromBackground);
   return {
     ensure,
     ready,
-    getBus(){ ensure(); return bus; }
+    getBus(){ ensure(); return bus; },
+    onRebuild
   };
 })();
 
@@ -1359,6 +1407,10 @@ const Sound = (function(){
     }
     return ctx;
   }
+  // Sound effects are all fire-and-forget (button clicks, cell taps, etc) —
+  // nothing to actively restart after a dead context, just drop the stale
+  // references so the next effect lazily rebuilds them on the new context.
+  AudioCore.onRebuild(()=>{ ctx = null; masterGain = null; });
 
   // unlock audio on first user gesture (mobile requirement)
   function unlock(){
@@ -1608,6 +1660,13 @@ const Music = (function(){
   function stopScheduler(){
     schedulerRunning = false;
     if(tickWorker) tickWorker.postMessage('stop');
+  }
+  // Lets the UI stay in sync (now-playing name, highlighted row, auto-scroll)
+  // even when the song changes on its own — natural end of a track, an mp3
+  // sample's 'ended' event, etc — not just from a button click in the panel.
+  let songChangeListeners = [];
+  function fireSongChange(){
+    songChangeListeners.forEach(fn=>{ try{ fn(); }catch(e){} });
   }
   let songIndex = 0, loopSong = false, volume = 0.1;
   const MAX_GAIN = 0.85;
@@ -2091,6 +2150,28 @@ const Music = (function(){
     stopScheduler();
   }
 
+  // Called by AudioCore once it's replaced a dead (closed) context with a
+  // fresh one. Every node this module built — master/pad/melody/drum/rain
+  // buses, the reverb/delay sends, the sample gain/source nodes — belonged
+  // to the old context and is now unusable, so throw all of it away and, if
+  // something was actually playing, start it again from scratch on the new
+  // context. (Decoded sample AudioBuffers in sampleBufferCache are fine to
+  // keep — an AudioBuffer isn't tied to the context that decoded it, only
+  // AudioNodes are, so there's no need to re-fetch/re-decode the mp3s.)
+  AudioCore.onRebuild(function(){
+    const wasRunning = running, wasMuted = muted;
+    stopScheduler();
+    clearAutoAdvance();
+    ctx = null;
+    master = null; padBus = null; melodyBus = null; drumBus = null; rainBus = null;
+    reverb = null; reverbSend = null;
+    delay = null; delayFeedback = null; delaySend = null;
+    rainSrc = null; rainLfoOsc = null;
+    sampleGainNode = null; sampleSourceNode = null; sampleManualStop = false;
+    running = false; started = false; starting = false;
+    if(wasRunning && !wasMuted) start();
+  });
+
   function switchSong(idx){
     const n = SONGS.length;
     songIndex = ((idx % n) + n) % n;
@@ -2124,6 +2205,7 @@ const Music = (function(){
     }
     armAutoAdvance();
     saveMusicPrefs();
+    fireSongChange();
   }
 
   function next(){ switchSong(songIndex + 1); }
@@ -2162,6 +2244,7 @@ const Music = (function(){
     selectSong(i){ if(musicAvailable) switchSong(i); },
     getSongs(){ return musicAvailable ? SONGS.map(s => ({ name: s.name })) : []; },
     isAvailable(){ return musicAvailable; },
+    onSongChange(fn){ songChangeListeners.push(fn); },
     getState(){
       const song = currentSong();
       return {
@@ -3481,6 +3564,7 @@ const musicLoopBtn = document.getElementById('musicLoopBtn');
 const musicMuteBtn = document.getElementById('musicMuteBtn');
 const musicVolume = document.getElementById('musicVolume');
 const musicSongList = document.getElementById('musicSongList');
+const musicSongFade = document.getElementById('musicSongFade');
 const musicCloseBtn = document.getElementById('musicCloseBtn');
 
 const ICON_SKIP_PREV = `<svg viewBox="0 0 24 24" width="1.05em" height="1.05em" fill="currentColor"><rect x="5" y="5" width="2.6" height="14" rx="0.6"/><polygon points="18,5 18,19 8,12"/></svg>`;
@@ -3520,6 +3604,12 @@ function renderMusicPanel(){
      </button>`
   ).join('');
   capSongListHeight();
+  // Rebuilding innerHTML above resets scrollTop to 0 every time, so put the
+  // list back on whichever song is actually playing (also covers the "just
+  // opened the panel" and "song auto-advanced" cases, since both end up
+  // calling this same render function) and then re-check the fade.
+  scrollToPlayingSong();
+  updateSongFade();
 }
 
 // Sizes the song list so exactly 5 rows are visible and any further songs
@@ -3533,6 +3623,24 @@ function capSongListHeight(){
   const gap = parseFloat(getComputedStyle(musicSongList).rowGap) || 0;
   musicSongList.style.maxHeight = (rowH*VISIBLE_SONG_ROWS + gap*(VISIBLE_SONG_ROWS-1)) + 'px';
 }
+
+// Keeps the currently-playing song scrolled into view — the whole point of
+// capping the list to 5 rows above is that the rest are reachable by
+// scrolling, so whichever one is actually playing shouldn't ever be hidden
+// off-screen without the player realizing it's there.
+function scrollToPlayingSong(){
+  const el = musicSongList.querySelector('.music-song-btn.playing');
+  if(el) el.scrollIntoView({ block:'nearest' });
+}
+
+// Shows the bottom fade only while there's more list below the current
+// scroll position — no fade once you've scrolled (or the list is short
+// enough) to reveal the last song.
+function updateSongFade(){
+  const hasMore = musicSongList.scrollHeight - musicSongList.scrollTop - musicSongList.clientHeight > 2;
+  musicSongFade.classList.toggle('show', hasMore);
+}
+musicSongList.addEventListener('scroll', updateSongFade);
 
 function openMusicPanel(){
   if(!Music.isAvailable()) return; // toggle icon is hidden in this case, but guard anyway
@@ -3557,6 +3665,11 @@ musicSongList.addEventListener('click', (e)=>{
   Music.selectSong(parseInt(btn.dataset.i, 10));
   renderMusicPanel();
 });
+// Covers auto-advance (a track finishing on its own, or an mp3 sample's
+// natural end) — renderMusicPanel() is cheap to re-run even while the panel
+// is closed, and it's what keeps "now playing" and the auto-scroll correct
+// the next time the panel opens.
+Music.onSongChange(()=>{ renderMusicPanel(); });
 
 /* ---------- tutorial: paginated, illustrated rule pages ---------- */
 const XMARK_SVG_MINI = `<svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>`;
