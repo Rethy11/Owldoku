@@ -1028,12 +1028,23 @@
       const dx = Math.sin(angleRad) * len;
       const dy = Math.cos(angleRad) * len;
       const dur = rnd(o.durMin, o.durMax) * 1000; // ms
+      // Gradient is built once here, in the drop's own local (untranslated)
+      // coordinate space, instead of every frame. Canvas gradients paint
+      // through whatever transform is active when the shape is stroked, so
+      // as long as we apply the same tx/ty translation at draw time that we
+      // used here, the gradient tracks the moving drop correctly without
+      // ever being recreated.
+      const grad = c2d.createLinearGradient(x1, y1, x1+dx, y1+dy);
+      grad.addColorStop(0, `rgba(${o.rgbTop},0)`);
+      grad.addColorStop(o.midStop, `rgba(${o.rgbMid},${o.midAlpha})`);
+      grad.addColorStop(1, `rgba(${o.rgbBottom},0)`);
       drops.push({
         x1, y1, x2: x1+dx, y2: y1+dy,
         width: rnd(o.wMin, o.wMax),
         opacity: rnd(o.opMin, o.opMax),
         dur,
-        phase: rnd(0, dur) // random start offset — same job as the old negative animation-delay
+        phase: rnd(0, dur), // random start offset — same job as the old negative animation-delay
+        grad
       });
     }
     let dpr = 1, cw = 0, ch = 0, coverScale = 1, offsetX = 0, offsetY = 0;
@@ -1058,18 +1069,15 @@
       for(const d of drops){
         const t = ((now + d.phase) % d.dur) / d.dur;
         const tx = totalDx * t, ty = o.travel * t;
-        const gx1 = d.x1+tx, gy1 = d.y1+ty, gx2 = d.x2+tx, gy2 = d.y2+ty;
-        const grad = c2d.createLinearGradient(gx1, gy1, gx2, gy2);
-        grad.addColorStop(0, `rgba(${o.rgbTop},0)`);
-        grad.addColorStop(o.midStop, `rgba(${o.rgbMid},${o.midAlpha})`);
-        grad.addColorStop(1, `rgba(${o.rgbBottom},0)`);
+        c2d.translate(tx, ty);
         c2d.globalAlpha = d.opacity;
-        c2d.strokeStyle = grad;
+        c2d.strokeStyle = d.grad;
         c2d.lineWidth = d.width;
         c2d.beginPath();
-        c2d.moveTo(gx1, gy1);
-        c2d.lineTo(gx2, gy2);
+        c2d.moveTo(d.x1, d.y1);
+        c2d.lineTo(d.x2, d.y2);
         c2d.stroke();
+        c2d.translate(-tx, -ty);
       }
     }
     return { resize, draw };
@@ -1090,8 +1098,13 @@
     })
   ].filter(Boolean);
   let rainRafId = null;
+  let rainLastDraw = 0;
+  const RAIN_FRAME_MS = 1000/30; // rain reads fine at 30fps; no need to redraw every 60fps tick
   function rainTick(now){
-    rainLayers.forEach(layer => layer.draw(now));
+    if(now - rainLastDraw >= RAIN_FRAME_MS){
+      rainLastDraw = now;
+      rainLayers.forEach(layer => layer.draw(now));
+    }
     rainRafId = requestAnimationFrame(rainTick);
   }
   function startRain(){
@@ -1384,25 +1397,6 @@ document.addEventListener('selectstart', function(e){ e.preventDefault(); });
   document.addEventListener('touchstart', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
   document.addEventListener('pointerdown', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
 
-  // Additionally: for a short window after every touch, poll every animation
-  // frame instead of only reacting to the events above. A double-tap zoom
-  // animates in over a few frames, and visualViewport's resize/scroll events
-  // can lag a beat behind that — polling catches (and reverts) it as early
-  // into the animation as possible, which is what keeps the visible flash
-  // short instead of the zoom fully completing before anything responds.
-  let pollUntil = 0, polling = false;
-  function pollForZoom(){
-    if(isZoomed()) forceResetZoom();
-    if(Date.now() < pollUntil){
-      requestAnimationFrame(pollForZoom);
-    } else {
-      polling = false;
-    }
-  }
-  document.addEventListener('touchstart', function(){
-    pollUntil = Date.now() + 700;
-    if(!polling){ polling = true; requestAnimationFrame(pollForZoom); }
-  }, { passive:true, capture:true });
 })();
 
 /* ---------- shared audio core ---------- */
