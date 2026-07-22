@@ -736,20 +736,16 @@
     100%{ transform:translate(120%,-6%); opacity:0; }
   }
 
-  /* Rain is built from individual falling streak-lines (see buildRain() in the
-     script below), not a tiled repeating pattern — a uniform hatch reads as
-     wallpaper, not weather. Each <line> has its own length/speed/opacity and
-     a gradient stroke that fades top and bottom for a soft comet-tail. */
-  #cityBg svg.city-rain-layer{ position:absolute; inset:0; width:100%; height:100%; overflow:visible; }
+  /* Rain is drawn on canvas as individual falling streaks, not a tiled
+     repeating pattern — a uniform hatch reads as wallpaper, not weather.
+     Each streak has its own length/speed/opacity and a gradient stroke
+     that fades top and bottom for a soft comet-tail. Motion is driven by
+     a single rAF loop in JS (see initCanvasRain() below) rather than many
+     separately-animated DOM nodes — cheaper to composite, especially on
+     lower-end mobile. */
+  #cityBg .city-rain-layer{ position:absolute; inset:0; width:100%; height:100%; }
   #cityBg .city-rain-back{ opacity:0.32; }
   #cityBg .city-rain-front{ opacity:0.52; }
-  #cityBg .drop{
-    animation-name:cbDropFall; animation-timing-function:linear; animation-iteration-count:infinite;
-  }
-  @keyframes cbDropFall{
-    0%{ transform:translate(0,0); }
-    100%{ transform:translate(var(--dx,0px), 1150px); }
-  }
 
 
   #cityBg .city-puddle{ position:absolute; left:0; right:0; bottom:0; height:14%; overflow:hidden; }
@@ -819,8 +815,8 @@
     </g>
   </svg>
 
-  <svg class="city-rain-layer city-rain-back" id="cityRainBack" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"></svg>
-  <svg class="city-rain-layer city-rain-front" id="cityRainFront" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice"></svg>
+  <canvas class="city-rain-layer city-rain-back" id="cityRainBack" aria-hidden="true"></canvas>
+  <canvas class="city-rain-layer city-rain-front" id="cityRainFront" aria-hidden="true"></canvas>
 
   <div class="city-puddle">
     <div class="blob" style="left:8%; width:14%; background:radial-gradient(closest-side,#ff6fb0,transparent 70%);"></div>
@@ -1011,43 +1007,103 @@
     if(a && b) b.innerHTML = a.innerHTML;
   });
 
-  /* ---------- rain: individual falling streak-lines, not a tiled pattern ---------- */
-  function buildRain(svg, count, o){
-    if(!svg) return;
+  /* ---------- rain: individual falling streaks, not a tiled pattern ----------
+     Drawn on canvas from a single rAF loop rather than ~30 separately CSS-
+     animated SVG <line>s (the earlier approach) — each of those was its own
+     gradient-stroked node the browser had to keep rasterizing, which added
+     up to a real sustained compositing cost on lower-end mobile. Same look
+     (per-streak length/speed/opacity, comet-tail gradient, never-repeating
+     randomized fall), cheaper engine underneath. */
+  function initCanvasRain(canvas, count, o){
+    if(!canvas) return null;
+    const c2d = canvas.getContext('2d');
+    if(!c2d) return null;
     const angleRad = o.angleDeg * Math.PI/180;
     const totalDx = Math.sin(angleRad) * o.travel;
+    const drops = [];
     for(let i=0;i<count;i++){
       const len = rnd(o.lenMin, o.lenMax);
       const x1 = rnd(-100, VBW+100);
       const y1 = rnd(-320, -10);
       const dx = Math.sin(angleRad) * len;
       const dy = Math.cos(angleRad) * len;
-      const line = make('line', {
-        x1:x1.toFixed(1), y1:y1.toFixed(1), x2:(x1+dx).toFixed(1), y2:(y1+dy).toFixed(1),
-        stroke:`url(#${o.gradId})`,
-        'stroke-width': rnd(o.wMin,o.wMax).toFixed(2),
-        'stroke-linecap':'round',
-        opacity: rnd(o.opMin,o.opMax).toFixed(2)
+      const dur = rnd(o.durMin, o.durMax) * 1000; // ms
+      drops.push({
+        x1, y1, x2: x1+dx, y2: y1+dy,
+        width: rnd(o.wMin, o.wMax),
+        opacity: rnd(o.opMin, o.opMax),
+        dur,
+        phase: rnd(0, dur) // random start offset — same job as the old negative animation-delay
       });
-      line.setAttribute('class','drop');
-      const dur = rnd(o.durMin, o.durMax);
-      line.style.setProperty('--dx', totalDx.toFixed(1)+'px');
-      line.style.animationDuration = dur.toFixed(2)+'s';
-      line.style.animationDelay = (-rnd(0,dur)).toFixed(2)+'s'; // negative delay: starts already mid-fall
-      svg.appendChild(line);
     }
+    let dpr = 1, cw = 0, ch = 0, coverScale = 1, offsetX = 0, offsetY = 0;
+    function resize(){
+      dpr = Math.max(1, window.devicePixelRatio || 1);
+      cw = window.innerWidth; ch = window.innerHeight;
+      canvas.width = Math.round(cw*dpr);
+      canvas.height = Math.round(ch*dpr);
+      // "cover, anchored bottom-center" — the same fit the old viewBox
+      // preserveAspectRatio="xMidYMax slice" gave the SVG version for free.
+      coverScale = Math.max(cw/VBW, ch/VBH);
+      offsetX = (cw - VBW*coverScale)/2;
+      offsetY = ch - VBH*coverScale;
+    }
+    resize();
+    function draw(now){
+      c2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+      c2d.clearRect(0, 0, cw, ch);
+      c2d.translate(offsetX, offsetY);
+      c2d.scale(coverScale, coverScale);
+      c2d.lineCap = 'round';
+      for(const d of drops){
+        const t = ((now + d.phase) % d.dur) / d.dur;
+        const tx = totalDx * t, ty = o.travel * t;
+        const gx1 = d.x1+tx, gy1 = d.y1+ty, gx2 = d.x2+tx, gy2 = d.y2+ty;
+        const grad = c2d.createLinearGradient(gx1, gy1, gx2, gy2);
+        grad.addColorStop(0, `rgba(${o.rgbTop},0)`);
+        grad.addColorStop(o.midStop, `rgba(${o.rgbMid},${o.midAlpha})`);
+        grad.addColorStop(1, `rgba(${o.rgbBottom},0)`);
+        c2d.globalAlpha = d.opacity;
+        c2d.strokeStyle = grad;
+        c2d.lineWidth = d.width;
+        c2d.beginPath();
+        c2d.moveTo(gx1, gy1);
+        c2d.lineTo(gx2, gy2);
+        c2d.stroke();
+      }
+    }
+    return { resize, draw };
   }
-  // Particle counts halved from their original 35/22 — rain is 57
-  // individually-animating elements that repaint for as long as the game is
-  // open, one of the bigger sustained compositing costs in the whole scene.
-  buildRain(document.getElementById('cityRainBack'), 18, {
-    lenMin:34, lenMax:68, wMin:1, wMax:1.6, opMin:0.16, opMax:0.34,
-    angleDeg:9, durMin:1.3, durMax:2.1, travel:1150, gradId:'rainGradBack'
-  });
-  buildRain(document.getElementById('cityRainFront'), 12, {
-    lenMin:58, lenMax:118, wMin:1.6, wMax:2.8, opMin:0.26, opMax:0.5,
-    angleDeg:14, durMin:0.7, durMax:1.25, travel:1150, gradId:'rainGradFront'
-  });
+  // Particle counts unchanged from the SVG version (halved from their
+  // original 35/22 a while back) — still tuned for how much rain reads as
+  // "weather" vs. clutter, independent of which engine draws it.
+  const rainLayers = [
+    initCanvasRain(document.getElementById('cityRainBack'), 18, {
+      lenMin:34, lenMax:68, wMin:1, wMax:1.6, opMin:0.16, opMax:0.34,
+      angleDeg:9, durMin:1.3, durMax:2.1, travel:1150,
+      rgbTop:'188,216,255', rgbMid:'188,216,255', rgbBottom:'234,244,255', midStop:0.7, midAlpha:0.55
+    }),
+    initCanvasRain(document.getElementById('cityRainFront'), 12, {
+      lenMin:58, lenMax:118, wMin:1.6, wMax:2.8, opMin:0.26, opMax:0.5,
+      angleDeg:14, durMin:0.7, durMax:1.25, travel:1150,
+      rgbTop:'215,236,255', rgbMid:'215,236,255', rgbBottom:'242,249,255', midStop:0.65, midAlpha:0.65
+    })
+  ].filter(Boolean);
+  let rainRafId = null;
+  function rainTick(now){
+    rainLayers.forEach(layer => layer.draw(now));
+    rainRafId = requestAnimationFrame(rainTick);
+  }
+  function startRain(){
+    if(rainRafId || rainLayers.length === 0) return;
+    rainRafId = requestAnimationFrame(rainTick);
+  }
+  function stopRain(){
+    if(rainRafId){ cancelAnimationFrame(rainRafId); rainRafId = null; }
+  }
+  window.addEventListener('resize', ()=> rainLayers.forEach(l => l.resize()));
+  window.addEventListener('orientationchange', ()=> rainLayers.forEach(l => l.resize()));
+  if(!document.hidden) startRain();
 
   /* Pause every cityBg animation while the tab/app is backgrounded (screen
      locked, app switched away, etc). Most browsers already throttle rAF and
@@ -1055,28 +1111,15 @@
      real battery/CPU on top of that once the user comes back. */
   document.addEventListener('visibilitychange', function(){
     const cityBg = document.getElementById('cityBg');
-    if(!cityBg) return;
-    cityBg.getAnimations({subtree:true}).forEach(function(a){
-      if(document.hidden) a.pause(); else a.play();
-    });
+    if(cityBg){
+      cityBg.getAnimations({subtree:true}).forEach(function(a){
+        if(document.hidden) a.pause(); else a.play();
+      });
+    }
+    if(document.hidden) stopRain(); else startRain();
   });
 })();
 </script>
-
-<svg id="sharedIconDefs" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
-<defs>
-  <linearGradient id="rainGradBack" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#bcd8ff" stop-opacity="0"/>
-    <stop offset="0.7" stop-color="#bcd8ff" stop-opacity="0.55"/>
-    <stop offset="1" stop-color="#eaf4ff" stop-opacity="0"/>
-  </linearGradient>
-  <linearGradient id="rainGradFront" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="#d7ecff" stop-opacity="0"/>
-    <stop offset="0.65" stop-color="#d7ecff" stop-opacity="0.65"/>
-    <stop offset="1" stop-color="#f2f9ff" stop-opacity="0"/>
-  </linearGradient>
-</defs>
-</svg>
 
 <button type="button" class="title-screen" id="titleScreen" aria-label="Tap to play">
   <div class="eyes" id="titleEyes"><span></span><span></span></div>
