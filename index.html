@@ -1837,7 +1837,14 @@ const Music = (function(){
       src.connect(sampleGainNode);
       src.onended = ()=>{
         if(sampleManualStop){ sampleManualStop = false; return; }
-        next(); // natural end of the recording — advance the playlist
+        // Natural end (not a manual stop/switch) — clear the stale reference
+        // before advancing, so if the next song is also a sample, its own
+        // stopSampleSource() call doesn't try to stop/disconnect a node
+        // that already finished playing on its own.
+        if(sampleSourceNode === src) sampleSourceNode = null;
+        next(); // advance the playlist — switchSong()/next() already wrap
+                // the index via modulo, so this loops back to song 0 when
+                // it fires on the last track in SONGS.
       };
       sampleSourceNode = src;
       src.start(0);
