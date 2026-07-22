@@ -1383,6 +1383,26 @@ document.addEventListener('selectstart', function(e){ e.preventDefault(); });
   // never survives past the user's very next tap.
   document.addEventListener('touchstart', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
   document.addEventListener('pointerdown', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
+
+  // Additionally: for a short window after every touch, poll every animation
+  // frame instead of only reacting to the events above. A double-tap zoom
+  // animates in over a few frames, and visualViewport's resize/scroll events
+  // can lag a beat behind that — polling catches (and reverts) it as early
+  // into the animation as possible, which is what keeps the visible flash
+  // short instead of the zoom fully completing before anything responds.
+  let pollUntil = 0, polling = false;
+  function pollForZoom(){
+    if(isZoomed()) forceResetZoom();
+    if(Date.now() < pollUntil){
+      requestAnimationFrame(pollForZoom);
+    } else {
+      polling = false;
+    }
+  }
+  document.addEventListener('touchstart', function(){
+    pollUntil = Date.now() + 700;
+    if(!polling){ polling = true; requestAnimationFrame(pollForZoom); }
+  }, { passive:true, capture:true });
 })();
 
 /* ---------- shared audio core ---------- */
@@ -3140,12 +3160,30 @@ function cellFromPoint(x,y){
   return { r: +cellEl.dataset.r, c: +cellEl.dataset.c };
 }
 
+let lastCellTap = { r:null, c:null, time:0 };
 function onGridPointerDown(e){
   if(gameOver || solved || conflictCell) return;
   const cellEl = e.target.closest('.cell');
   if(!cellEl) return;
   e.preventDefault();
   const r = +cellEl.dataset.r, c = +cellEl.dataset.c;
+
+  // A fast repeat tap on the SAME cell (i.e. a double-tap) is treated as a
+  // no-op rather than toggling the mark a second time. This isn't really
+  // about debouncing input — it's what keeps Safari's smart-zoom-to-element
+  // gesture from getting triggered in the first place: toggleOwl()/paintX()
+  // both call render(), which rebuilds the cell's innerHTML, so without this
+  // guard the second tap of a double-tap lands on a DOM node that's
+  // different from the one the first tap touched. That mismatch seems to be
+  // what convinces Safari it should zoom to the "new" element instead of
+  // recognizing this as an ordinary repeated tap it can ignore.
+  const now = Date.now();
+  if(lastCellTap.r===r && lastCellTap.c===c && (now - lastCellTap.time) < 400){
+    lastCellTap.time = now;
+    return;
+  }
+  lastCellTap = { r, c, time: now };
+
   selectedCell = {r,c};
 
   if(mode==='owl'){
@@ -4138,6 +4176,26 @@ boardEl().addEventListener('pointerdown', onGridPointerDown);
 document.addEventListener('pointermove', onDocPointerMove);
 document.addEventListener('pointerup', onDocPointerUp);
 document.addEventListener('pointercancel', onDocPointerUp);
+
+/* Safari-specific: double-tapping a board cell — especially one that already
+   holds an owl or X — can trigger Safari's "smart zoom to element" gesture
+   even with the document-wide double-tap guard above in place. The likely
+   reason it slips through here but not elsewhere on the page: render()
+   rebuilds every cell's innerHTML on each tap, so the second tap of a
+   double-tap lands on a freshly-created DOM node rather than the one the
+   first tap touched, which seems to be enough for Safari's gesture tracking
+   to treat it as "double-tap this new thing" instead of recognizing it as
+   part of the same repeated tap it would otherwise ignore. The document-level
+   fix depends on tap timing and target continuity; this one doesn't — it
+   unconditionally blocks the browser's default touch handling on the board
+   itself, so the zoom gesture never gets a chance to start there. Game input
+   is driven entirely by the pointerdown listener above, so this doesn't
+   affect normal tapping or X-dragging. */
+(function(){
+  const gridEl = boardEl();
+  gridEl.addEventListener('touchstart', function(e){ e.preventDefault(); }, { passive:false });
+  gridEl.addEventListener('touchend', function(e){ e.preventDefault(); }, { passive:false });
+})();
 
 document.getElementById('owlModeIcon').innerHTML = owlIconHTML();
 document.getElementById('winOwlIcon').innerHTML = owlIconHTML('happy');
