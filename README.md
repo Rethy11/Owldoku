@@ -1,11 +1,11 @@
-#About Plasticine Games
+# About Plasticine Games
 
 Welcome!
 Plasticine Games is a small independent game studio owned and operated by Shawn.Genji. What started as a hobby has grown into a passion project dedicated to creating relaxing puzzle games and experimental experiences that are polished, thoughtfully designed, and simply fun to play.
 
 I develop every game in my spare time, focusing on the details that often make the biggest difference: responsive gameplay, handcrafted visuals, carefully selected sound effects, and music designed to create a smooth, enjoyable experience. My goal is simple—I hope you enjoy playing these games as much as I’ve enjoyed creating them.
 
-#About Owldoku
+# About Owldoku
 
 Owldoku is my take on the Queens puzzle. It began with a simple thought: surely someone could make a better version than the endless stream of low-quality mobile puzzle ads. Rather than settling for the bare minimum, I wanted to build a version that feels satisfying from the very first click.
 
@@ -13,11 +13,11 @@ Beyond recreating the core puzzle, Owldoku introduces its own innovations. The p
 
 Whether you’re looking for a relaxing daily puzzle or a serious mental challenge, I hope Owldoku provides an experience that’s rewarding, polished, and worth coming back to.
 
-#Looking Ahead
+# Looking Ahead
 
 Owldoku is only the beginning. Plasticine Games is already developing its next project, Slime Sliders, along with other experimental games that explore new mechanics and ideas while maintaining a focus on accessibility, quality, and player enjoyment.
 
-#Your Privacy
+# Your Privacy
 
 Owldoku stores a small amount of information locally on your device using your browser’s local storage. This includes things such as your audio preferences and personal accomplishments, including best times and completed difficulties.
 
@@ -27,13 +27,13 @@ Owldoku does not include player accounts, cloud saves, analytics, crash reportin
 
 The website may display advertisements through Adsterra or similar advertising providers. These third-party services may collect information as described in their own privacy policies. Plasticine Games does not receive access to your locally stored game data. See the full Privacy Policy for details.
 
-#Contact
+# Contact
 
 Questions, suggestions, bug reports, or just want to say hello?
 
 You can reach Plasticine Games on Instagram at @plasticinegames.
 
-#Legal
+# Legal
 
 Plasticine Games is a sole proprietorship operating in the State of Tennessee, United States.
 
