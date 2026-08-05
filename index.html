@@ -3632,6 +3632,31 @@ async function captureResultImage(won){
   clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
   clone.removeAttribute('id');
 
+  // The owl glyph everywhere else on the page is sized purely by CSS: the
+  // container (.cell .glyph, .mode-btn .ic, .card .paw, etc.) sets an
+  // explicit box, and .owl-icon just fills it at width/height:100% with
+  // object-fit:contain. html2canvas doesn't reliably resolve that
+  // percentage-of-a-rem-sized-parent + object-fit combo for an <img>
+  // pointing at an external SVG — it tends to fall back toward the
+  // source SVG's own intrinsic size, which is why the owl balloons in
+  // the captured PNG. Read the paw's real on-screen pixel box off the
+  // live card and pin the clone's icon to those exact pixels so
+  // html2canvas has nothing left to guess at.
+  const livePaw = cardEl.querySelector('.paw');
+  const clonePaw = clone.querySelector('.paw');
+  if(livePaw && clonePaw){
+    const pawRect = livePaw.getBoundingClientRect();
+    clonePaw.style.width = pawRect.width + 'px';
+    clonePaw.style.height = pawRect.height + 'px';
+    clonePaw.style.flexShrink = '0';
+    clonePaw.style.overflow = 'hidden';
+    const icon = clonePaw.querySelector('img, .owl-icon');
+    if(icon){
+      icon.style.width = pawRect.width + 'px';
+      icon.style.height = pawRect.height + 'px';
+    }
+  }
+
   const rect = cardEl.getBoundingClientRect();
   clone.style.position = 'fixed';
   clone.style.left = '-10000px';
