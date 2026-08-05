@@ -3635,25 +3635,34 @@ async function captureResultImage(won){
   // The owl glyph everywhere else on the page is sized purely by CSS: the
   // container (.cell .glyph, .mode-btn .ic, .card .paw, etc.) sets an
   // explicit box, and .owl-icon just fills it at width/height:100% with
-  // object-fit:contain. html2canvas doesn't reliably resolve that
-  // percentage-of-a-rem-sized-parent + object-fit combo for an <img>
-  // pointing at an external SVG — it tends to fall back toward the
-  // source SVG's own intrinsic size, which is why the owl balloons in
-  // the captured PNG. Read the paw's real on-screen pixel box off the
-  // live card and pin the clone's icon to those exact pixels so
-  // html2canvas has nothing left to guess at.
+  // object-fit:contain. html2canvas doesn't reliably size an <img> that
+  // points at an external SVG down to that box though — it tends to draw
+  // the SVG at its own intrinsic size regardless of CSS width/height or
+  // object-fit, and the box's overflow:hidden just clips the oversized
+  // result, which is why the owl showed up cropped and huge in the
+  // captured PNG. Swap the <img> for a background-image div sized to the
+  // paw's exact on-screen pixel box instead — html2canvas handles
+  // background-size:contain correctly even where it fumbles img sizing.
   const livePaw = cardEl.querySelector('.paw');
   const clonePaw = clone.querySelector('.paw');
   if(livePaw && clonePaw){
     const pawRect = livePaw.getBoundingClientRect();
+    const liveImg = livePaw.querySelector('img');
     clonePaw.style.width = pawRect.width + 'px';
     clonePaw.style.height = pawRect.height + 'px';
     clonePaw.style.flexShrink = '0';
     clonePaw.style.overflow = 'hidden';
-    const icon = clonePaw.querySelector('img, .owl-icon');
-    if(icon){
-      icon.style.width = pawRect.width + 'px';
-      icon.style.height = pawRect.height + 'px';
+    clonePaw.style.position = 'relative';
+    if(liveImg){
+      clonePaw.innerHTML = '';
+      const bgIcon = document.createElement('div');
+      bgIcon.style.width = '100%';
+      bgIcon.style.height = '100%';
+      bgIcon.style.backgroundImage = `url("${liveImg.src}")`;
+      bgIcon.style.backgroundSize = 'contain';
+      bgIcon.style.backgroundRepeat = 'no-repeat';
+      bgIcon.style.backgroundPosition = 'center';
+      clonePaw.appendChild(bgIcon);
     }
   }
 
