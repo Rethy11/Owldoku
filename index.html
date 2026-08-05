@@ -507,6 +507,26 @@
     100%{ transform:translateY(105vh) translateX(var(--drift,0px)) rotate(var(--rotate,180deg)); opacity:0.1; }
   }
 
+  /* Hand-toss burst used when the win-overlay owl's frame-3 pose shows its
+     wings at its sides — a small two-stage arc (up-and-out, then down)
+     rather than the straight top-of-screen rain of confettiFall, so it
+     reads as being thrown from a specific point rather than falling from
+     the sky. Lives in its own fixed, full-viewport layer created lazily by
+     spawnConfettiBurst() so it always renders above the win card
+     regardless of the card's own stacking context. */
+  .hand-confetti-piece{
+    position:absolute; width:7px; height:12px; opacity:1;
+    border-radius:2px;
+    animation-name: confettiToss;
+    animation-timing-function: cubic-bezier(0.22,0.68,0.36,1);
+    animation-fill-mode: forwards;
+  }
+  @keyframes confettiToss{
+    0%{ transform:translate(0,0) rotate(0deg) scale(0.5); opacity:1; }
+    35%{ transform:translate(var(--tx-mid,0px), var(--ty-mid,-50px)) rotate(var(--rot-mid,180deg)) scale(1); opacity:1; }
+    100%{ transform:translate(var(--tx-end,0px), var(--ty-end,90px)) rotate(var(--rot-end,520deg)) scale(0.85); opacity:0; }
+  }
+
   /* ===================== footer & ad banner ===================== */
   footer{
     text-align:center; color:var(--ink-dim); font-size:0.58rem;
@@ -2872,7 +2892,9 @@ function startWinOwlCycle(){
   img.src = `sprites/${WIN_OWL_CYCLE[winOwlCycleIndex]}.svg`;
   winOwlCycleInterval = setInterval(()=>{
     winOwlCycleIndex = (winOwlCycleIndex + 1) % WIN_OWL_CYCLE.length;
-    img.src = `sprites/${WIN_OWL_CYCLE[winOwlCycleIndex]}.svg`;
+    const frame = WIN_OWL_CYCLE[winOwlCycleIndex];
+    img.src = `sprites/${frame}.svg`;
+    if(frame === 'owl-happy3') launchHandConfetti(holder);
   }, WIN_OWL_FRAME_MS);
 }
 
@@ -2881,6 +2903,8 @@ function stopWinOwlCycle(){
     clearInterval(winOwlCycleInterval);
     winOwlCycleInterval = null;
   }
+  handConfettiPieces.forEach(p => p.remove());
+  handConfettiPieces = [];
 }
 
 /* ---------- core game state — one puzzle's worth, replaced wholesale by
@@ -3315,7 +3339,7 @@ function launchConfetti(){
   const layer = document.getElementById('confettiLayer');
   if(!layer) return;
   layer.innerHTML = '';
-  const colors = ['#e8a33d','#7fb59e','#e0685a','#f4eee0','#b7aecb'];
+  const colors = CONFETTI_COLORS;
   const count = 30;
   for(let i=0;i<count;i++){
     const piece = document.createElement('div');
@@ -3331,6 +3355,75 @@ function launchConfetti(){
   }
   setTimeout(()=>{ layer.innerHTML = ''; }, 2600);
 }
+
+const CONFETTI_COLORS = ['#e8a33d','#7fb59e','#e0685a','#f4eee0','#b7aecb'];
+let handConfettiPieces = [];
+
+// Lazily-created, fixed, full-viewport layer for the hand-toss bursts.
+// Kept separate from #confettiLayer (which sits behind .card) and appended
+// straight to <body> with a high z-index so the burst is always visible
+// on top of the win card, wherever on the page that card happens to be.
+function getHandConfettiLayer(){
+  let layer = document.getElementById('handConfettiLayer');
+  if(!layer){
+    layer = document.createElement('div');
+    layer.id = 'handConfettiLayer';
+    layer.style.cssText = 'position:fixed; inset:0; pointer-events:none; z-index:9999; overflow:hidden;';
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+
+// One handful of confetti tossed from a single (x,y) viewport point.
+// direction is -1 (toss left/out) or 1 (toss right/out); the pieces arc up
+// and outward before falling and fading, rather than just raining down.
+function spawnConfettiBurst(x, y, direction){
+  const layer = getHandConfettiLayer();
+  const count = 9;
+  for(let i=0;i<count;i++){
+    const piece = document.createElement('div');
+    piece.className = 'hand-confetti-piece';
+    piece.style.left = x + 'px';
+    piece.style.top = y + 'px';
+    piece.style.background = CONFETTI_COLORS[Math.floor(Math.random()*CONFETTI_COLORS.length)];
+    if(Math.random() < 0.4) piece.style.borderRadius = '50%';
+    const spread = (Math.random()*40 + 20) * direction;
+    const midX = spread + (Math.random()*20 - 10);
+    const upY = -(Math.random()*45 + 35);
+    const endX = midX + direction*(Math.random()*30 + 10);
+    const endY = upY + (Math.random()*90 + 70);
+    const rotMid = Math.floor(Math.random()*360);
+    const rotEnd = rotMid + Math.floor(Math.random()*360 + 180);
+    piece.style.setProperty('--tx-mid', midX + 'px');
+    piece.style.setProperty('--ty-mid', upY + 'px');
+    piece.style.setProperty('--tx-end', endX + 'px');
+    piece.style.setProperty('--ty-end', endY + 'px');
+    piece.style.setProperty('--rot-mid', rotMid + 'deg');
+    piece.style.setProperty('--rot-end', rotEnd + 'deg');
+    const duration = 0.85 + Math.random()*0.35;
+    piece.style.animationDuration = duration + 's';
+    layer.appendChild(piece);
+    handConfettiPieces.push(piece);
+    setTimeout(()=>{
+      piece.remove();
+      handConfettiPieces = handConfettiPieces.filter(p => p !== piece);
+    }, duration*1000 + 80);
+  }
+}
+
+// Owl-happy3's pose rests both wings down at its sides — this fires a
+// burst from each wing tip (measured from the sprite: ~6%/47% from the
+// left, ~93%/45% from the right of the icon box) so it reads as the owl
+// tossing confetti with its hands, timed to whenever that frame is shown.
+function launchHandConfetti(iconEl){
+  const rect = iconEl.getBoundingClientRect();
+  if(rect.width === 0) return;
+  const leftHand = { x: rect.left + rect.width*0.06, y: rect.top + rect.height*0.47 };
+  const rightHand = { x: rect.left + rect.width*0.93, y: rect.top + rect.height*0.45 };
+  spawnConfettiBurst(leftHand.x, leftHand.y, -1);
+  spawnConfettiBurst(rightHand.x, rightHand.y, 1);
+}
+
 
 function endGame(won){
   gameOver = true;
