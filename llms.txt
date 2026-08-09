@@ -1,0 +1,19 @@
+# Owldoku
+
+> A relaxing, owl-themed puzzle game inspired by the "Queens" puzzle genre, made by independent studio Plasticine Games. Play free in the browser at owldoku.com.
+
+Owldoku reimagines the Queens-style logic puzzle with a hand-crafted board, an original puzzle-generation algorithm, and a unique variation unlocked at the highest difficulty. It is developed independently by Shawn.Genji under the studio name Plasticine Games. The game runs entirely client-side: preferences and best times are stored only in the player's browser (localStorage), with no accounts, cloud saves, or first-party analytics/tracking. The site may show third-party ads (e.g. via Adsterra), which have their own data practices.
+
+Owldoku's source is partially viewable on GitHub for transparency, but the game and its assets are proprietary — public visibility does not grant a license to copy, redistribute, modify, or commercially reuse them.
+
+## Pages
+
+- [Play Owldoku](https://owldoku.com/): The game itself — an owl-themed Queens-inspired puzzle with multiple difficulty levels.
+- [About](https://owldoku.com/about.html): Background on Owldoku and Plasticine Games, privacy practices, contact info, and legal/copyright notice.
+- [Privacy Policy](https://owldoku.com/privacy.html): Full privacy policy covering local storage use and third-party advertising.
+- [Terms of Use](https://owldoku.com/terms.html): Terms governing use of the website and game.
+
+## Notes
+
+- Owldoku is not affiliated with the "Queens" puzzle's original creators; it is an independent, original take on the genre.
+- For licensing or reuse questions, contact Plasticine Games via Instagram: [@plasticinegames](https://www.instagram.com/plasticinegames).
