@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Owldoku</title>
 <meta name="description" content="A relaxing owl themed, Queens inspired puzzle game.">
 <meta property="og:type" content="website">
@@ -34,20 +34,60 @@
     --ink-dim: #b7aecb;
     --accent: #e8a33d;
     --accent-dim: #715a2b;
-    --miss: #e0685a;
+    --miss: #ea7a6f;
     --good: #7fb59e;
+  }
+  /* ===================== accessibility utilities ===================== */
+  /* Visually hides content while keeping it in the accessibility tree —
+     used for text alternatives (e.g. "2 of 3 lives remaining") that sit
+     alongside purely decorative glyphs. */
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  .skip-link{
+    position:absolute; left:8px; top:-60px; z-index:1000;
+    background:var(--accent); color:var(--bg-deep);
+    padding:10px 16px; border-radius:8px;
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.85rem;
+    text-decoration:none;
+    transition:top 0.15s ease;
+  }
+  .skip-link:focus{ top:8px; }
+  /* A single, visible keyboard-focus ring reused everywhere. Only shows for
+     keyboard/AT focus (:focus-visible), so pointer/touch interaction looks
+     exactly as before. */
+  a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible,
+  .cell:focus-visible{
+    outline:3px solid var(--accent);
+    outline-offset:2px;
+    border-radius:4px;
+  }
+  .cell:focus-visible{ outline-offset:-3px; z-index:5; border-radius:3px; }
+  /* Respect the OS-level "reduce motion" preference site-wide, not just for
+     the handful of animations that previously opted in individually. */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{
+      animation-duration:0.001ms !important;
+      animation-iteration-count:1 !important;
+      transition-duration:0.001ms !important;
+      scroll-behavior:auto !important;
+    }
   }
   /* ===================== global resets — this is a fullscreen app shell,
      not a scrolling page, so touch/scroll/zoom/selection are locked down
      everywhere by default ===================== */
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:none;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{
     height:100%;
     overflow:hidden;
     overscroll-behavior:none;
   }
   html,body{
-    touch-action:none;
+    /* 'manipulation' (not 'none') so the page still can't be dragged around
+       like a scrollable document, but pinch-zoom and OS/browser zoom remain
+       available — disabling those outright fails WCAG 1.4.4/1.4.10. */
+    touch-action:manipulation;
     -webkit-user-select:none;
     -moz-user-select:none;
     -ms-user-select:none;
@@ -320,7 +360,7 @@
   .overlay{
     position:fixed; inset:0; background:rgba(23,19,31,0.86);
     display:flex; align-items:center; justify-content:center; z-index:10; padding:20px;
-    touch-action:none;
+    touch-action:manipulation;
     visibility:hidden; opacity:0;
     transition:opacity 0.5s ease;
   }
@@ -777,6 +817,8 @@
 </head>
 <body>
 
+<a href="#" class="skip-link" id="skipToBoard">Skip to puzzle board</a>
+
 <div id="cityBg" aria-hidden="true">
   <div class="city-sky"></div>
   <div class="city-haze"></div>
@@ -1147,7 +1189,7 @@
 </script>
 
 <button type="button" class="title-screen" id="titleScreen" aria-label="Tap to play">
-  <div class="eyes" id="titleEyes"><span></span><span></span></div>
+  <div class="eyes" id="titleEyes" aria-hidden="true"><span></span><span></span></div>
   <div class="title-main">
     <h1>Owldoku</h1>
     <div class="tag">one owl per color, row & column</div>
@@ -1162,17 +1204,22 @@
 
 <div class="wrap" id="gameWrap">
   <header>
-    <button class="help-btn" id="helpBtn" aria-label="How to play" title="How to play">?</button>
-    <button class="music-toggle on" id="musicToggle" aria-label="Open music settings" title="Music settings">🔊</button>
-    <div class="eyes"><span></span><span></span></div>
+    <button class="help-btn" id="helpBtn" aria-label="How to play" title="How to play" aria-haspopup="dialog">?</button>
+    <button class="music-toggle on" id="musicToggle" aria-label="Open music settings" title="Music settings" aria-haspopup="dialog">🔊</button>
+    <div class="eyes" aria-hidden="true"><span></span><span></span></div>
     <h1>Owldoku</h1>
     <div class="tag">one owl per color, row & column</div>
   </header>
 
+  <!-- display:contents makes this a real "main" landmark for assistive tech
+       without adding a box to the layout, so nothing here shifts visually —
+       .wrap's children still lay out exactly as the flex CSS below expects. -->
+  <main id="gameMain" style="display:contents">
+
   <div class="statbar">
     <span>Time <span class="val" id="timer">00:00</span></span>
     <span>Best <span class="val best-val" id="bestTime">--:--</span></span>
-    <span class="hearts" id="hearts"></span>
+    <span class="hearts" id="hearts" aria-live="polite" aria-atomic="true"></span>
   </div>
 
   <div class="selectbar">
@@ -1197,15 +1244,20 @@
   </div>
 
   <div class="board" id="boardWrap">
+    <p id="boardInstructions" class="sr-only">
+      Use the arrow keys to move between cells, and Home or End to jump to the start or end of a row.
+      Press Enter or Space to act on the focused cell, using whichever mode — Place owls or Mark X — is
+      currently selected below. Given owls are fixed clues and can't be changed.
+    </p>
     <div class="board-box" id="boardBox">
-      <div class="grid" id="grid"></div>
+      <div class="grid" id="grid" role="grid" tabindex="-1" aria-describedby="boardInstructions" aria-label="Owldoku puzzle board"></div>
     </div>
-    <div class="tip-popup" id="tipPopup"></div>
+    <div class="tip-popup" id="tipPopup" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
 
-  <div class="modebar">
-    <button class="mode-btn active" id="xModeBtn"><span class="ic" id="xModeIcon">✕</span> <span id="xModeLabel">Mark X</span></button>
-    <button class="mode-btn" id="owlModeBtn"><span class="ic" id="owlModeIcon"></span> Place owls</button>
+  <div class="modebar" role="group" aria-label="Placement mode">
+    <button class="mode-btn active" id="xModeBtn" aria-pressed="true"><span class="ic" id="xModeIcon" aria-hidden="true">✕</span> <span id="xModeLabel">Mark X</span></button>
+    <button class="mode-btn" id="owlModeBtn" aria-pressed="false"><span class="ic" id="owlModeIcon" aria-hidden="true"></span> Place owls</button>
   </div>
 
   <div class="toolbar">
@@ -1214,22 +1266,24 @@
     <button class="btn primary" id="newBtn">New puzzle</button>
   </div>
 
+  </main>
+
   <footer>
     <a href="about.html">About Us</a> &bull; <a href="privacy.html">Privacy Policy</a> &bull; <a href="terms.html">Terms of Use</a>
   </footer>
 
-  <div class="ad-banner">
+  <div class="ad-banner" role="complementary" aria-label="Advertisement">
     <script async="async" data-cfasync="false" src="https://pl30653482.effectivecpmnetwork.com/a772da8dc4c261ad66b43d79cf845beb/invoke.js"></script>
     <div id="container-a772da8dc4c261ad66b43d79cf845beb"></div>
   </div>
 </div>
 
 <div class="overlay" id="tutorialOverlay">
-  <div class="card tutorial-card" id="tutorialCard">
-    <button type="button" class="tut-close-btn" id="tutCloseBtn" aria-label="Close tutorial">✕</button>
-    <div class="tut-owl-ic" id="tutOwlIcon"></div>
+  <div class="card tutorial-card" id="tutorialCard" role="dialog" aria-modal="true" aria-labelledby="tutTitle">
+    <button type="button" class="tut-close-btn" id="tutCloseBtn" aria-label="Close tutorial" data-modal-dismiss>✕</button>
+    <div class="tut-owl-ic" id="tutOwlIcon" aria-hidden="true"></div>
     <h2 id="tutTitle"></h2>
-    <div class="tut-board-box" id="tutBoardBox"></div>
+    <div class="tut-board-box" id="tutBoardBox" aria-hidden="true"></div>
     <div class="tut-hearts" id="tutHearts" style="display:none;"></div>
     <p id="tutText"></p>
     <div class="tut-dots" id="tutDots"></div>
@@ -1241,11 +1295,11 @@
 </div>
 
 <div class="overlay" id="nolinesOverlay">
-  <div class="card tutorial-card" id="nolinesCard">
-    <button type="button" class="tut-close-btn" id="nolinesCloseBtn" aria-label="Close">✕</button>
-    <div class="tut-owl-ic" id="nolinesOwlIcon"></div>
+  <div class="card tutorial-card" id="nolinesCard" role="dialog" aria-modal="true" aria-labelledby="nolinesTitle">
+    <button type="button" class="tut-close-btn" id="nolinesCloseBtn" aria-label="Close" data-modal-dismiss>✕</button>
+    <div class="tut-owl-ic" id="nolinesOwlIcon" aria-hidden="true"></div>
     <h2 id="nolinesTitle"></h2>
-    <div class="tut-board-box" id="nolinesBoardBox"></div>
+    <div class="tut-board-box" id="nolinesBoardBox" aria-hidden="true"></div>
     <div class="tut-hearts" id="nolinesHearts" style="display:none;"></div>
     <div class="tut-photo-caption" id="nolinesCaption" style="display:none;"></div>
     <p id="nolinesText"></p>
@@ -1258,22 +1312,22 @@
 </div>
 
 <div class="overlay" id="confirmOverlay">
-  <div class="card">
-    <h2>Are you sure?</h2>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 id="confirmTitle">Are you sure?</h2>
     <p id="confirmText">This will clear your progress on the current board.</p>
     <div style="display:flex; gap:8px;">
-      <button class="btn" id="confirmNoBtn" style="width:100%;">No</button>
+      <button class="btn" id="confirmNoBtn" style="width:100%;" data-modal-dismiss>No</button>
       <button class="btn primary" id="confirmYesBtn" style="width:100%;">Yes</button>
     </div>
   </div>
 </div>
 
 <div class="overlay" id="winOverlay">
-  <div class="confetti-layer" id="confettiLayer"></div>
-  <div class="card">
-    <button type="button" class="tut-close-btn" id="winCloseBtn" aria-label="Close">✕</button>
-    <div class="paw" id="winOwlIcon"></div>
-    <h2>Every owl is home</h2>
+  <div class="confetti-layer" id="confettiLayer" aria-hidden="true"></div>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <button type="button" class="tut-close-btn" id="winCloseBtn" aria-label="Close" data-modal-dismiss>✕</button>
+    <div class="paw" id="winOwlIcon" aria-hidden="true"></div>
+    <h2 id="winTitle">Every owl is home</h2>
     <p id="winStats">Solved in 00:00.</p>
     <div class="new-best" id="newBestBadge">New Best!</div>
     <div style="display:flex; gap:8px;">
@@ -1284,10 +1338,10 @@
 </div>
 
 <div class="overlay" id="loseOverlay">
-  <div class="card sad">
-    <button type="button" class="tut-close-btn" id="loseCloseBtn" aria-label="Close">✕</button>
-    <div class="paw" id="loseOwlIcon"></div>
-    <h2>Out of hearts</h2>
+  <div class="card sad" role="dialog" aria-modal="true" aria-labelledby="loseTitle">
+    <button type="button" class="tut-close-btn" id="loseCloseBtn" aria-label="Close" data-modal-dismiss>✕</button>
+    <div class="paw" id="loseOwlIcon" aria-hidden="true"></div>
+    <h2 id="loseTitle">Out of hearts</h2>
     <p>Too many owls bumped into each other. Try this board again, or start a fresh one.</p>
     <div style="display:flex; gap:8px;">
       <button class="btn" id="retryBtn" style="width:100%;">Retry board</button>
@@ -1298,8 +1352,8 @@
 </div>
 
 <div class="overlay" id="musicOverlay">
-  <div class="card music-card">
-    <h2>Music</h2>
+  <div class="card music-card" role="dialog" aria-modal="true" aria-labelledby="musicTitle">
+    <h2 id="musicTitle">Music</h2>
     <div class="music-now">
       <div class="music-now-label">Now playing</div>
       <div class="music-now-name" id="musicNowName">&nbsp;</div>
@@ -1320,7 +1374,7 @@
       <div class="music-song-list" id="musicSongList"></div>
       <div class="music-song-fade" id="musicSongFade" aria-hidden="true"></div>
     </div>
-    <button class="btn primary" id="musicCloseBtn" style="width:100%;">Done</button>
+    <button class="btn primary" id="musicCloseBtn" style="width:100%;" data-modal-dismiss>Done</button>
   </div>
 </div>
 
@@ -1332,12 +1386,17 @@
 <script src="music/late-bus-home.js" onerror="console.warn('Music: failed to load late-bus-home.js')"></script>
 
 <script>
-/* ---------- lock scrolling / zooming / selection ---------- */
-document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
-document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
-document.addEventListener('gestureend', function(e){ e.preventDefault(); });
+/* ---------- lock accidental page drag/scroll — but never block zoom ----------
+   This block used to also intercept Safari's pinch gesture events, multi-touch
+   touchmove, ctrl/cmd+wheel, and keyboard zoom shortcuts, and even forcibly
+   snapped the viewport back to 1x if a user's OS/browser zoom slipped through
+   anyway. All of that actively defeated pinch-zoom and OS/browser accessibility
+   zoom, which fails WCAG 1.4.4 (Resize Text) / 1.4.10 (Reflow) — it's been
+   removed. Only the parts that don't interfere with zoom remain below. */
 
-// Prevent double-tap-to-zoom while still allowing normal single taps/clicks
+// Prevent double-tap-to-zoom on a stray double-tap while still allowing normal
+// single taps/clicks. This does not block pinch-zoom, ctrl/cmd + scroll or
+// +/-/0, or OS-level accessibility zoom — all of those remain fully available.
 let lastTouchEnd = 0;
 document.addEventListener('touchend', function(e){
   const now = Date.now();
@@ -1347,67 +1406,23 @@ document.addEventListener('touchend', function(e){
   lastTouchEnd = now;
 }, { passive: false });
 
-// Prevent pinch-zoom and multi-touch gestures, and block scroll-driven touchmove
-document.addEventListener('touchmove', function(e){
-  if(e.touches.length > 1){ e.preventDefault(); return; }
-}, { passive: false });
-
-// Prevent ctrl/cmd + wheel zoom and mouse-wheel page scroll — but not inside
-// the song list, which is meant to be wheel/trackpad-scrollable.
-document.addEventListener('wheel', function(e){
-  if(e.target.closest('.music-song-list')) return;
-  e.preventDefault();
-}, { passive: false });
-
-// Prevent keyboard zoom shortcuts and page scroll via keys
-document.addEventListener('keydown', function(e){
-  if((e.ctrlKey || e.metaKey) && (e.key === '+' || e.key === '-' || e.key === '0' || e.key === '=')){
-    e.preventDefault();
-  }
-  if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(e.key)){
-    e.preventDefault();
-  }
-}, { passive: false });
-
 // Belt-and-suspenders: block context menu (long-press selection menu) and text selection events
 document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 document.addEventListener('selectstart', function(e){ e.preventDefault(); });
 
-// Final safety net: if the page ever actually ends up zoomed in (some browsers allow
-// pinch/accessibility zoom through despite the blockers above), snap it back to 1x
-// immediately. Toggling the viewport meta's content forces mobile browsers to
-// re-apply it and drop back to initial-scale.
-(function(){
-  const viewportMeta = document.querySelector('meta[name="viewport"]');
-  const baseContent = viewportMeta ? viewportMeta.getAttribute('content') : '';
-  let resetting = false;
-  function forceResetZoom(){
-    if(resetting || !viewportMeta) return;
-    resetting = true;
-    window.scrollTo(0,0);
-    viewportMeta.setAttribute('content', baseContent + ', maximum-scale=1.0');
-    // give the browser a beat to actually apply the clamp before releasing it,
-    // otherwise a fast RAF-only toggle can get missed mid zoom-animation
-    setTimeout(function(){
-      viewportMeta.setAttribute('content', baseContent);
-      window.scrollTo(0,0);
-      resetting = false;
-    }, 80);
+// Prevent Arrow/Space/Page/Home/End from scrolling the page when focus is
+// somewhere non-interactive — but never when focus is on a button, link,
+// form field, an open dialog, or the puzzle grid, all of which need their
+// native key behavior (e.g. Space activating a focused button, arrow keys
+// moving between grid cells or through a <select>).
+document.addEventListener('keydown', function(e){
+  const onInteractive = !!e.target.closest(
+    'button, a[href], select, input, textarea, [role="gridcell"], [role="dialog"], [contenteditable="true"], [tabindex]'
+  );
+  if(!onInteractive && ['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(e.key)){
+    e.preventDefault();
   }
-  window.__forceResetZoom = forceResetZoom;
-  function isZoomed(){
-    return window.visualViewport && window.visualViewport.scale > 1.01;
-  }
-  if(window.visualViewport){
-    window.visualViewport.addEventListener('resize', function(){ if(isZoomed()) forceResetZoom(); });
-    window.visualViewport.addEventListener('scroll', function(){ if(isZoomed()) forceResetZoom(); });
-  }
-  // Catch it the instant the next touch/click happens anywhere, so a stuck zoom
-  // never survives past the user's very next tap.
-  document.addEventListener('touchstart', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
-  document.addEventListener('pointerdown', function(){ if(isZoomed()) forceResetZoom(); }, { passive:true, capture:true });
-
-})();
+}, { passive: false });
 
 /* ---------- shared audio core ---------- */
 const AudioCore = (function(){
@@ -3011,12 +3026,21 @@ function buildGridDOM(){
   el.innerHTML = '';
   el.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
   el.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+  el.setAttribute('aria-label', `Owldoku puzzle board, ${N} by ${N}`);
+  el.setAttribute('aria-rowcount', N);
+  el.setAttribute('aria-colcount', N);
   const colors = regionColors(N);
   for(let r=0;r<N;r++){
     for(let c=0;c<N;c++){
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.dataset.r = r; cell.dataset.c = c;
+      cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-rowindex', r+1);
+      cell.setAttribute('aria-colindex', c+1);
+      // Roving tabindex: only one cell sits in the Tab order at a time (the
+      // current position); arrow keys move it. Starts at the top-left cell.
+      cell.tabIndex = (r===0 && c===0) ? 0 : -1;
       const fill = document.createElement('div');
       fill.className = 'fill';
       fill.style.background = colors[regionOf[r][c]];
@@ -3263,6 +3287,71 @@ function onDocPointerUp(){
   dragGlyph = null;
 }
 
+/* ---------- keyboard access for the puzzle grid ----------
+   Arrow keys move a roving tabindex from cell to cell (Home/End jump to the
+   start/end of the current row); Enter or Space acts on the focused cell
+   exactly as a single tap would, using whichever mode — owl or X — is
+   currently active. Click-drag painting across multiple cells at once is a
+   pointer-only convenience; a keyboard user just presses Enter/Space once
+   per cell, which is equivalent to a single tap on that cell. */
+function focusCell(r,c){
+  selectedCell = {r,c};
+  render();
+  const target = boardEl().children[r*N+c];
+  if(target) target.focus();
+}
+
+function activateFocusedCell(r,c){
+  if(gameOver || solved || conflictCell) return;
+  if(given[r][c]){ selectedCell = {r,c}; render(); return; }
+  selectedCell = {r,c};
+  if(mode==='owl'){
+    toggleOwl(r,c);
+    return;
+  }
+  const action = mark[r][c]==='x' ? 'remove' : 'add';
+  paintX(r,c,action);
+}
+
+function onGridKeyDown(e){
+  const cellEl = e.target.closest('.cell');
+  if(!cellEl) return;
+  const r = +cellEl.dataset.r, c = +cellEl.dataset.c;
+  switch(e.key){
+    case 'ArrowUp':    e.preventDefault(); if(r>0) focusCell(r-1,c); break;
+    case 'ArrowDown':  e.preventDefault(); if(r<N-1) focusCell(r+1,c); break;
+    case 'ArrowLeft':  e.preventDefault(); if(c>0) focusCell(r,c-1); break;
+    case 'ArrowRight': e.preventDefault(); if(c<N-1) focusCell(r,c+1); break;
+    case 'Home':       e.preventDefault(); focusCell(r,0); break;
+    case 'End':        e.preventDefault(); focusCell(r,N-1); break;
+    case 'Enter':
+    case ' ':
+      e.preventDefault();
+      activateFocusedCell(r,c);
+      break;
+  }
+}
+
+// Plain-language description of one cell's state, for the accessible name
+// screen readers announce as focus moves around the board. Sighted players
+// get all of this from color/glyph at a glance; this is that same
+// information in words.
+function cellAriaLabel(r,c){
+  const isOwl = given[r][c] || mark[r][c]==='owl';
+  const isX = !isOwl && mark[r][c]==='x';
+  let state;
+  if(isOwl){
+    state = given[r][c] ? 'given owl, fixed clue' : 'owl';
+  } else if(isX){
+    state = markGlyph[r][c]==='q' ? 'marked with a question mark' : 'marked with an X';
+  } else {
+    state = 'empty';
+  }
+  const conflictNote = (isOwl && !given[r][c] && owlConflicts(r,c,allOwls()).length>0)
+    ? ', conflicts with another owl' : '';
+  return `Row ${r+1}, column ${c+1}, region ${regionOf[r][c]+1}: ${state}${conflictNote}`;
+}
+
 // Full re-render of every cell from current state. Simple over incremental
 // (rebuilds each cell's inner HTML wholesale rather than patching just what
 // changed) — board sizes here are small enough (up to ~10x10) that this is
@@ -3275,10 +3364,13 @@ function render(){
     for(let c=0;c<N;c++){
       const cell = cells[r*N+c];
       cell.classList.toggle('given', !!given[r][c]);
-      cell.classList.toggle('selected', selectedCell && selectedCell.r===r && selectedCell.c===c);
+      const isFocusTarget = selectedCell ? (selectedCell.r===r && selectedCell.c===c) : (r===0 && c===0);
+      cell.classList.toggle('selected', !!selectedCell && selectedCell.r===r && selectedCell.c===c);
+      cell.tabIndex = isFocusTarget ? 0 : -1;
       const isOwl = given[r][c] || mark[r][c]==='owl';
       const hasConflict = isOwl && owlConflicts(r,c,owls).length>0;
       cell.classList.toggle('error', hasConflict && !given[r][c]);
+      cell.setAttribute('aria-label', cellAriaLabel(r,c));
 
       let inner = '';
       if(isOwl){
@@ -3309,12 +3401,18 @@ function xSvg(glyph){
   return `<div class="xmark"><svg viewBox="0 0 24 24" fill="none" stroke="#f4eee0" stroke-width="3" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg></div>`;
 }
 
+// Shared by the live statbar hearts, the tutorial pages, and the mini
+// "game over" board preview: the ♥ glyphs alone don't tell a screen reader
+// how many lives remain (or are lost) — this adds a visually-hidden text
+// equivalent alongside the same visible glyphs, unchanged.
+function heartsMarkup(count, total=3){
+  let glyphs = '';
+  for(let i=0;i<total;i++) glyphs += i < count ? '♥' : '<span class="lost">♥</span>';
+  return `<span class="sr-only">${count} of ${total} lives remaining</span><span aria-hidden="true">${glyphs}</span>`;
+}
+
 function heartsHTML(){
-  let out = '';
-  for(let i=0;i<3;i++){
-    out += i < hearts ? '♥' : '<span class="lost">♥</span>';
-  }
-  return out;
+  return heartsMarkup(hearts, 3);
 }
 
 function checkWin(){
@@ -3814,6 +3912,8 @@ function setMode(m){
   mode = m;
   owlModeBtn.classList.toggle('active', m==='owl');
   xModeBtn.classList.toggle('active', m==='x');
+  owlModeBtn.setAttribute('aria-pressed', m==='owl' ? 'true' : 'false');
+  xModeBtn.setAttribute('aria-pressed', m==='x' ? 'true' : 'false');
 }
 owlModeBtn.addEventListener('click', ()=>setMode('owl'));
 xModeBtn.addEventListener('click', ()=>setMode('x'));
@@ -3863,7 +3963,7 @@ function renderMusicPanel(smoothScroll){
     return;
   }
   musicSongList.innerHTML = Music.getSongs().map((s,i)=>
-    `<button type="button" class="music-song-btn${i===state.songIndex?' playing':''}" data-i="${i}">
+    `<button type="button" class="music-song-btn${i===state.songIndex?' playing':''}" data-i="${i}"${i===state.songIndex?' aria-current="true"':''}>
        <span><span class="music-song-num">${String(i+1).padStart(2,'0')}</span>${s.name}</span>
        ${i===state.songIndex ? '<span class="music-song-note" aria-hidden="true">♪</span>' : ''}
      </button>`
@@ -3995,9 +4095,7 @@ function tutBoardHTML(spec){
   if(spec.gameOver){
     let heartsHtml = '';
     if(typeof spec.hearts === 'number'){
-      let h = '';
-      for(let i=0;i<3;i++) h += i < spec.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
-      heartsHtml = `<div class="tgo-hearts">${h}</div>`;
+      heartsHtml = `<div class="tgo-hearts">${heartsMarkup(spec.hearts, 3)}</div>`;
     }
     html += `<div class="tut-gameover-overlay"><div class="tgo-owl">${owlIconHTML('sad')}</div><div class="tgo-title">Out of hearts</div><div class="tgo-sub">Game over</div>${heartsHtml}</div>`;
   }
@@ -4055,9 +4153,7 @@ function renderTutorialPage(){
   tutBoardBox.innerHTML = tutBoardHTML(page.board);
   document.getElementById('tutOwlIcon').innerHTML = page.icon === 'sad' ? owlIconHTML('sad') : owlIconHTML();
   if(typeof page.hearts === 'number'){
-    let h = '';
-    for(let i=0;i<3;i++) h += i < page.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
-    tutHearts.innerHTML = h;
+    tutHearts.innerHTML = heartsMarkup(page.hearts, 3);
     tutHearts.style.display = '';
   } else {
     tutHearts.style.display = 'none';
@@ -4204,9 +4300,7 @@ function renderNolinesPage(){
     nolinesOwlIcon.style.display = 'none';
   }
   if(typeof page.hearts === 'number'){
-    let h = '';
-    for(let i=0;i<3;i++) h += i < page.hearts ? '\u2665' : '<span class="lost">\u2665</span>';
-    nolinesHearts.innerHTML = h;
+    nolinesHearts.innerHTML = heartsMarkup(page.hearts, 3);
     nolinesHearts.style.display = '';
   } else {
     nolinesHearts.style.display = 'none';
@@ -4327,6 +4421,7 @@ if('ResizeObserver' in window){
 }
 
 boardEl().addEventListener('pointerdown', onGridPointerDown);
+boardEl().addEventListener('keydown', onGridKeyDown);
 document.addEventListener('pointermove', onDocPointerMove);
 document.addEventListener('pointerup', onDocPointerUp);
 document.addEventListener('pointercancel', onDocPointerUp);
@@ -4347,9 +4442,113 @@ document.addEventListener('pointercancel', onDocPointerUp);
    affect normal tapping or X-dragging. */
 (function(){
   const gridEl = boardEl();
-  gridEl.addEventListener('touchstart', function(e){ e.preventDefault(); }, { passive:false });
-  gridEl.addEventListener('touchend', function(e){ e.preventDefault(); }, { passive:false });
+  // Only guard single-finger taps here — a second finger touching down means
+  // this is a pinch gesture, not a double-tap, and must be left alone so
+  // pinch-zoom still works over the board (the one place a low-vision player
+  // most needs to be able to zoom in).
+  gridEl.addEventListener('touchstart', function(e){
+    if(e.touches.length > 1) return;
+    e.preventDefault();
+  }, { passive:false });
+  gridEl.addEventListener('touchend', function(e){
+    if(e.touches.length > 0) return;
+    e.preventDefault();
+  }, { passive:false });
 })();
+
+/* ---------- accessibility: focus management for every .overlay dialog ----------
+   None of the many open/close call sites elsewhere in this file (checkWin,
+   endGame, showTutorial, openMusicPanel, etc.) need to change for this to
+   work — it watches every .overlay for its 'show' class being toggled and
+   handles the rest: moving focus into the dialog, trapping Tab inside it,
+   making the rest of the page inert (unreachable by Tab or a screen reader's
+   virtual cursor) while it's open, closing on Escape, and returning focus to
+   whatever opened it once it's closed. */
+(function(){
+  const overlays = Array.from(document.querySelectorAll('.overlay'));
+  const outsideTargets = [
+    document.querySelector('#gameWrap > header'),
+    document.querySelector('.statbar'),
+    document.querySelector('.selectbar'),
+    document.getElementById('boardWrap'),
+    document.querySelector('.modebar'),
+    document.querySelector('.toolbar'),
+    document.querySelector('#gameWrap > footer'),
+    document.querySelector('#gameWrap > .ad-banner'),
+  ].filter(Boolean);
+  let lastFocused = null;
+  let activeOverlay = null;
+
+  function focusablesIn(container){
+    return Array.from(container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(el => el.offsetParent !== null);
+  }
+
+  function setInertOutside(overlay, on){
+    outsideTargets.forEach(el=>{ if(on) el.setAttribute('inert',''); else el.removeAttribute('inert'); });
+    overlays.forEach(o=>{
+      if(o===overlay) return;
+      if(on) o.setAttribute('inert','');
+      else if(!o.classList.contains('show')) o.removeAttribute('inert');
+    });
+  }
+
+  function activate(overlay){
+    if(activeOverlay === overlay) return;
+    activeOverlay = overlay;
+    lastFocused = document.activeElement;
+    setInertOutside(overlay, true);
+    const dialogBox = overlay.querySelector('[role="dialog"]') || overlay;
+    const focusables = focusablesIn(overlay);
+    (focusables[0] || dialogBox).focus({ preventScroll:true });
+  }
+
+  function deactivate(overlay){
+    if(activeOverlay !== overlay) return;
+    activeOverlay = null;
+    setInertOutside(overlay, false);
+    if(lastFocused && document.contains(lastFocused) && typeof lastFocused.focus === 'function'){
+      lastFocused.focus({ preventScroll:true });
+    }
+    lastFocused = null;
+  }
+
+  overlays.forEach(overlay=>{
+    const mo = new MutationObserver(()=>{
+      if(overlay.classList.contains('show')) activate(overlay);
+      else deactivate(overlay);
+    });
+    mo.observe(overlay, { attributes:true, attributeFilter:['class'] });
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(!activeOverlay) return;
+    if(e.key === 'Escape'){
+      const dismissBtn = activeOverlay.querySelector('[data-modal-dismiss]');
+      if(dismissBtn){ e.preventDefault(); dismissBtn.click(); }
+      return;
+    }
+    if(e.key === 'Tab'){
+      const focusables = focusablesIn(activeOverlay);
+      if(focusables.length === 0) return;
+      const first = focusables[0], last = focusables[focusables.length-1];
+      if(e.shiftKey && document.activeElement === first){
+        e.preventDefault(); last.focus();
+      } else if(!e.shiftKey && document.activeElement === last){
+        e.preventDefault(); first.focus();
+      }
+    }
+  });
+})();
+
+// Skip link: jump straight to the puzzle board's current focus position,
+// rather than relying on hash-fragment scrolling (this app never scrolls).
+document.getElementById('skipToBoard').addEventListener('click', function(e){
+  e.preventDefault();
+  const target = boardEl().querySelector('.cell[tabindex="0"]') || boardEl().querySelector('.cell');
+  if(target) target.focus();
+});
 
 document.getElementById('owlModeIcon').innerHTML = owlIconHTML();
 document.getElementById('winOwlIcon').innerHTML = owlIconHTML('happy');
