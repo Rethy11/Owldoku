@@ -3050,6 +3050,11 @@ function sizeBoard(){
 function buildGridDOM(){
   const el = boardEl();
   el.innerHTML = '';
+  // New DOM nodes are about to be created, so any cached per-cell render
+  // signatures (see render()) refer to nodes that no longer exist — clear
+  // the cache so the next render() repaints every cell instead of wrongly
+  // skipping cells that "look" unchanged on the new nodes.
+  prevCellSig = null;
   el.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
   el.style.gridTemplateRows = `repeat(${N}, 1fr)`;
   el.setAttribute('aria-label', `Owldoku puzzle board, ${N} by ${N}`);
@@ -3382,21 +3387,46 @@ function cellAriaLabel(r,c){
 // (rebuilds each cell's inner HTML wholesale rather than patching just what
 // changed) — board sizes here are small enough (up to ~10x10) that this is
 // cheap, and it avoids an entire class of stale-DOM bugs.
+// Per-cell signature cache used by render() to skip cells whose visible
+// state hasn't changed since the last call. Without this, every tap
+// rewrote all N*N cells' innerHTML (see buildGridDOM's full rebuild for
+// comparison) even though a move only ever changes a handful of cells
+// (the tapped cell, plus any cells whose conflict state flips as a
+// result). That full-board rewrite is what was causing the redraw jank
+// on slower devices. Invalidated (set to null) whenever buildGridDOM()
+// throws away the old DOM nodes and creates new ones, since the cache
+// is only meaningful for the DOM nodes it was computed against.
+let prevCellSig = null;
+
 function render(){
   const el = boardEl();
   const cells = el.children;
   const owls = allOwls();
+  if(!prevCellSig || prevCellSig.length !== N){
+    prevCellSig = Array.from({length:N}, ()=> new Array(N).fill(null));
+  }
   for(let r=0;r<N;r++){
     for(let c=0;c<N;c++){
-      const cell = cells[r*N+c];
-      cell.classList.toggle('given', !!given[r][c]);
+      const isGiven = !!given[r][c];
       const isFocusTarget = selectedCell ? (selectedCell.r===r && selectedCell.c===c) : (r===0 && c===0);
-      cell.classList.toggle('selected', !!selectedCell && selectedCell.r===r && selectedCell.c===c);
-      cell.tabIndex = isFocusTarget ? 0 : -1;
-      const isOwl = given[r][c] || mark[r][c]==='owl';
+      const isSelected = !!selectedCell && selectedCell.r===r && selectedCell.c===c;
+      const isOwl = isGiven || mark[r][c]==='owl';
       const hasConflict = isOwl && owlConflicts(r,c,owls).length>0;
-      cell.classList.toggle('error', hasConflict && !given[r][c]);
-      cell.setAttribute('aria-label', cellAriaLabel(r,c));
+      const isErrorClass = hasConflict && !isGiven;
+      const markState = isOwl ? 'owl' : (mark[r][c]==='x' ? ('x:'+markGlyph[r][c]) : '');
+      const isConflictCell = !!(conflictCell && conflictCell.r===r && conflictCell.c===c);
+      const ariaLabel = cellAriaLabel(r,c);
+
+      const sig = isGiven+'|'+isFocusTarget+'|'+isSelected+'|'+isErrorClass+'|'+markState+'|'+isConflictCell+'|'+ariaLabel;
+      if(prevCellSig[r][c] === sig) continue;
+      prevCellSig[r][c] = sig;
+
+      const cell = cells[r*N+c];
+      cell.classList.toggle('given', isGiven);
+      cell.classList.toggle('selected', isSelected);
+      cell.tabIndex = isFocusTarget ? 0 : -1;
+      cell.classList.toggle('error', isErrorClass);
+      cell.setAttribute('aria-label', ariaLabel);
 
       let inner = '';
       if(isOwl){
@@ -3404,7 +3434,6 @@ function render(){
       } else if(mark[r][c]==='x'){
         inner = xSvg(markGlyph[r][c]);
       }
-      const isConflictCell = conflictCell && conflictCell.r===r && conflictCell.c===c;
       if(isConflictCell) inner += conflictXSvg();
       cell.classList.toggle('conflict-fading', false);
       const fill = cell.querySelector('.fill');
