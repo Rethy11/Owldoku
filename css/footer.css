@@ -1,0 +1,33 @@
+/* ===================== footer & ad banner ===================== */
+footer{
+  text-align:center; color:var(--ink-dim); font-size:0.58rem;
+  margin-top:min(0.3vh,3px); letter-spacing:0.02em; line-height:1.2;
+  flex:0 0 auto;
+}
+footer a{
+  color:var(--ink-dim); text-decoration:none;
+  border-bottom:1px solid transparent;
+  transition:color 0.15s ease, border-color 0.15s ease;
+}
+footer a:hover, footer a:focus-visible{ color:var(--accent); border-color:var(--accent-dim); }
+
+.ad-banner{
+  flex:0 0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:min(0.3vh,3px);
+  width:100%;
+  max-width:320px;
+  height:50px;
+  max-height:50px;
+  overflow:hidden;
+  align-self:center;
+}
+/* The ad runs in a sandboxed iframe created by the AD BANNER script. The
+   banner keeps its fixed 320x50 footprint in the layout whether or not an ad
+   fills, so a failed/retried request never shifts the board. The slot
+   ignores taps until an ad is confirmed loaded. */
+.ad-slot{ width:100%; max-width:320px; height:50px; overflow:hidden; pointer-events:none; }
+.ad-slot.ready{ pointer-events:auto; }
+.ad-slot iframe{ display:block; border:0; margin:0 auto; }

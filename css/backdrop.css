@@ -1,0 +1,118 @@
+/* ===================== Tokyo Midnight Rain — main-screen backdrop ===================== */
+/* Sits at z-index:-1 behind the game wrap. The title-screen paints its own opaque
+   background above this (z-index:100), so the cityscape is only ever visible once
+   the title screen fades away — no extra logic needed to gate it per-screen. */
+#cityBg{
+  position:fixed; inset:0; z-index:-1;
+  overflow:hidden; pointer-events:none;
+  background:#0a0815;
+  filter:saturate(0.68) brightness(0.86);
+}
+#cityBg .city-sky{
+  position:absolute; inset:-6%;
+  background:
+    radial-gradient(ellipse 70% 40% at 50% 118%, rgba(255,150,190,0.12), transparent 60%),
+    linear-gradient(to bottom, #090713 0%, #160f28 30%, #201938 56%, #2a2140 80%, #1e1830 100%);
+  animation: cbSkyDrift 100s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes cbSkyDrift{
+  0%{ transform:translate3d(0,0,0) scale(1.03); }
+  100%{ transform:translate3d(-1.6%,0.6%,0) scale(1.06); }
+}
+#cityBg .city-haze{
+  position:absolute; inset:-12%;
+  background:
+    radial-gradient(circle at 20% 72%, rgba(255,110,170,0.10), transparent 42%),
+    radial-gradient(circle at 80% 66%, rgba(90,200,255,0.09), transparent 44%),
+    radial-gradient(circle at 50% 88%, rgba(232,163,61,0.08), transparent 48%);
+  animation: cbHazePulse 13s ease-in-out infinite alternate;
+  will-change: opacity;
+}
+@keyframes cbHazePulse{ 0%{opacity:0.5;} 100%{opacity:0.9;} }
+
+#cityBg svg.city-layer{ position:absolute; inset:0; width:100%; height:100%; display:block; overflow:visible; }
+#cityBg .city-far{ opacity:0.30; }
+#cityBg .city-mid{ opacity:0.52; }
+#cityBg .city-neon{ opacity:0.7; }
+#cityBg .city-near{ opacity:0.62; }
+/* Each layer's skyline is drawn twice side by side (tile A + tile B, the second
+   offset by exactly one viewBox width). The pair then scrolls left by that same
+   width and loops — a seamless, one-directional crawl instead of a back-and-forth
+   wobble, so it keeps revealing "new" city rather than reversing on itself.
+   Farther layers move slower than nearer ones for parallax depth. */
+#cityBg .scroll-track{ will-change:transform; }
+/* steps(N) caps these at 30fps (N = duration_seconds * 30) instead of updating
+   every compositor frame, so 120Hz displays don't do 2x the paint work for
+   motion this slow — the eye can't tell the difference at this speed. */
+#cityBg .city-far .scroll-track{ animation:cbScroll 960s steps(28800) infinite; }
+#cityBg .city-mid .scroll-track{ animation:cbScroll 660s steps(19800) infinite; }
+#cityBg .city-neon .scroll-track{ animation:cbScroll 660s steps(19800) infinite; }
+#cityBg .city-near .scroll-track{ animation:cbScroll 450s steps(13500) infinite; }
+@keyframes cbScroll{ 0%{ transform:translateX(0); } 100%{ transform:translateX(-1600px); } }
+
+#cityBg .win{ animation:cbWinFlicker var(--fdur,6s) ease-in-out var(--d,0s) infinite; }
+@keyframes cbWinFlicker{
+  0%,40%,100%{ opacity:var(--wo,0.8); }
+  46%{ opacity:0.12; }
+  50%{ opacity:var(--wo,0.8); }
+  72%{ opacity:0.5; }
+}
+#cityBg .neon-sign{
+  filter:drop-shadow(0 0 8px currentColor);
+  animation:cbNeonPulse var(--ndur,4.5s) ease-in-out var(--nd,0s) infinite;
+}
+@keyframes cbNeonPulse{
+  0%,100%{ opacity:0.55; }
+  50%{ opacity:1; }
+}
+#cityBg .beacon{ animation:cbBeacon 2.4s steps(1) infinite; }
+@keyframes cbBeacon{ 0%,49%{opacity:1;} 50%,100%{opacity:0.08;} }
+#cityBg .steam{ animation:cbSteam 7s ease-in infinite; transform-origin:50% 100%; }
+@keyframes cbSteam{
+  0%{ transform:translateY(0) scale(1); opacity:0; }
+  15%{ opacity:0.35; }
+  100%{ transform:translateY(-70px) scale(1.6); opacity:0; }
+}
+#cityBg .train{ animation:cbTrain 36s linear infinite; will-change:transform; }
+@keyframes cbTrain{
+  0%{ transform:translateX(-20%); opacity:0; }
+  4%{ opacity:0.9; }
+  45%{ opacity:0.9; }
+  50%{ transform:translateX(120%); opacity:0; }
+  100%{ transform:translateX(120%); opacity:0; }
+}
+#cityBg .bird{ animation:cbBird 28s linear infinite; will-change:transform; }
+@keyframes cbBird{
+  0%{ transform:translate(-10%,0); opacity:0; }
+  6%{ opacity:0.45; }
+  50%{ transform:translate(65%,-4%); opacity:0.45; }
+  94%{ opacity:0; }
+  100%{ transform:translate(120%,-6%); opacity:0; }
+}
+
+/* Rain is drawn on canvas as individual falling streaks, not a tiled
+   repeating pattern — a uniform hatch reads as wallpaper, not weather.
+   Each streak has its own length/speed/opacity and a gradient stroke
+   that fades top and bottom for a soft comet-tail. Motion is driven by
+   a single rAF loop in JS (see initCanvasRain() below) rather than many
+   separately-animated DOM nodes — cheaper to composite, especially on
+   lower-end mobile. */
+#cityBg .city-rain-layer{ position:absolute; inset:0; width:100%; height:100%; }
+#cityBg .city-rain-back{ opacity:0.32; }
+#cityBg .city-rain-front{ opacity:0.52; }
+
+
+#cityBg .city-puddle{ position:absolute; left:0; right:0; bottom:0; height:14%; overflow:hidden; }
+#cityBg .city-puddle .blob{ position:absolute; bottom:-20%; height:140%; filter:blur(14px); animation:cbPuddle 6s ease-in-out infinite alternate; }
+@keyframes cbPuddle{ 0%{opacity:0.12;} 100%{opacity:0.28;} }
+
+#cityBg .city-vignette{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse at 50% 42%, transparent 42%, rgba(5,4,10,0.6) 100%),
+    linear-gradient(to bottom, rgba(5,4,10,0.3), transparent 22%, transparent 68%, rgba(5,4,10,0.42));
+}
+@media (prefers-reduced-motion: reduce){
+  #cityBg *{ animation:none !important; }
+}

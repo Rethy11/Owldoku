@@ -1,0 +1,45 @@
+/* ===================== mode bar (owl / X-mark placement) & toolbar
+   (hint / clear / new) buttons ===================== */
+.modebar{ display:flex; gap:8px; margin-top:min(0.3vh,3px); flex:0 0 auto; }
+.mode-btn{
+  flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+  background:var(--surface); border:1px solid var(--line); color:var(--ink-dim);
+  font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.78rem;
+  padding:8px 6px; border-radius:12px; cursor:pointer;
+  transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.mode-btn .ic{ width:1.15rem; height:1.15rem; vertical-align:-3px; display:inline-block; }
+.mode-btn.active{
+  border-color:var(--accent); background:var(--accent-dim); color:var(--ink);
+}
+
+.toolbar{ display:flex; gap:8px; margin-top:min(0.3vh,3px); flex:0 0 auto; }
+.btn{
+  flex:1; background:var(--surface); border:1px solid var(--line); color:var(--ink);
+  font-family:'Space Grotesk', sans-serif; font-weight:500; font-size:0.74rem;
+  padding:8px 6px; border-radius:12px; cursor:pointer;
+  transition:border-color 0.15s ease, background 0.15s ease;
+}
+.btn:hover{ border-color:var(--line-strong); background:var(--surface-2); }
+.btn.clear{ color:var(--miss); }
+.btn.primary{
+  background:var(--accent); color:var(--bg-deep); border-color:var(--accent); font-weight:600;
+}
+.btn.primary:hover{ filter:brightness(1.06); }
+.btn:disabled{
+  opacity:0.4; cursor:not-allowed; color:var(--ink-dim);
+  background:var(--surface); border-color:var(--line);
+}
+.btn:disabled:hover{ background:var(--surface); border-color:var(--line); }
+.btn.locked{ opacity:0.4; cursor:not-allowed; }
+.btn.locked:hover{ background:var(--surface); border-color:var(--line); }
+
+/* ===================== legend strip under the toolbar ===================== */
+.legend{
+  display:flex; align-items:center; justify-content:center; gap:14px;
+  margin-top:8px; font-size:0.72rem; color:var(--ink-dim);
+  flex:0 0 auto;
+}
+.legend .item{ display:flex; align-items:center; gap:5px; }
+.legend .swatch{ width:12px; height:12px; border-radius:3px; }
+.legend .swatch.owl{ background:var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:9px; }

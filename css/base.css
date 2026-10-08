@@ -1,0 +1,36 @@
+/* ===================== global resets — this is a fullscreen app shell,
+   not a scrolling page, so touch/scroll/zoom/selection are locked down
+   everywhere by default ===================== */
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html{
+  height:100%;
+  overflow:hidden;
+  overscroll-behavior:none;
+}
+html,body{
+  /* 'manipulation' (not 'none') so the page still can't be dragged around
+     like a scrollable document, but pinch-zoom and OS/browser zoom remain
+     available — disabling those outright fails WCAG 1.4.4/1.4.10. */
+  touch-action:manipulation;
+  -webkit-user-select:none;
+  -moz-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+}
+body{
+  margin:0;
+  height:100%;
+  width:100%;
+  overflow:hidden;
+  overscroll-behavior:none;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(232,163,61,0.10), transparent 45%),
+    radial-gradient(circle at 85% 92%, rgba(127,181,158,0.08), transparent 40%),
+    var(--bg);
+  color:var(--ink);
+  font-family:'Space Grotesk', sans-serif;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}

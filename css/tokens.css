@@ -1,0 +1,15 @@
+/* ===================== design tokens ===================== */
+:root{
+  --bg: #201a2c;
+  --bg-deep: #17131f;
+  --surface: #2c2440;
+  --surface-2: #362c4d;
+  --line: #4a3f63;
+  --line-strong: #6a5c8f;
+  --ink: #f4eee0;
+  --ink-dim: #b7aecb;
+  --accent: #e8a33d;
+  --accent-dim: #715a2b;
+  --miss: #ea7a6f;
+  --good: #7fb59e;
+}

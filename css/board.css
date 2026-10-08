@@ -1,0 +1,112 @@
+/* ===================== game board: grid, cells, owl/X glyphs, conflict
+   flash ===================== */
+.board{
+  position:relative;
+  opacity:1;
+  transition:opacity 0.15s ease;
+  flex:0 0 auto;          /* height is set by sizeBoard() to hug the square board */
+  min-height:0;
+  min-width:0;
+  margin:6px 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.board.generating{ opacity:0.35; pointer-events:none; }
+.board-box{
+  position:relative;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:6px;
+  box-shadow:0 20px 40px -20px rgba(0,0,0,0.6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+.grid{
+  display:grid;
+  gap:2px;
+  background:var(--bg-deep);
+  border-radius:10px;
+  overflow:hidden;
+  aspect-ratio:1;
+  touch-action:none;
+  width:100%;
+  height:100%;
+  max-width:100%;
+  max-height:100%;
+}
+.cell{
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+  cursor:pointer;
+  user-select:none;
+  touch-action:none;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+}
+.cell .fill{
+  position:absolute; inset:1px;
+  border-radius:3px;
+}
+.cell .glyph{
+  position:relative;
+  z-index:2;
+  width:64%;
+  height:64%;
+  line-height:1;
+  touch-action:none;
+}
+.cell .glyph svg{ width:100%; height:100%; display:block; }
+/* Every owl <img> (grid clues, mode icon, win/lose icon, tutorial pages)
+   shares this one rule: fill whatever box its container establishes,
+   keep its own aspect ratio, and never intercept clicks. Sizing lives on
+   the container (.cell .glyph, .mode-btn .ic, .card .paw, .tut-owl-ic,
+   .tgo-owl); this is the only rule the owl image itself needs. */
+.owl-icon{ width:100%; height:100%; display:block; object-fit:contain; pointer-events:none; }
+.cell .xmark{
+  position:relative; z-index:2;
+  width:38%; height:38%;
+  opacity:0.55;
+}
+.cell .xmark svg{ width:100%; height:100%; display:block; }
+.cell .glyph svg,
+.cell .xmark svg{ pointer-events:none; }
+.cell.given .glyph{ filter:drop-shadow(0 0 4px rgba(0,0,0,0.4)); }
+.cell.error .fill{ box-shadow:inset 0 0 0 3px var(--miss); }
+.cell.error .glyph{ filter: drop-shadow(0 0 6px rgba(224,104,90,0.9)); }
+.cell.selected .fill{ box-shadow:inset 0 0 0 2px rgba(244,238,224,0.7); }
+.cell:active .fill{ filter:brightness(1.08); }
+
+.cell .conflict-x{
+  position:absolute; inset:0; z-index:3;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
+  animation: conflictPop 0.18s ease-out;
+}
+.cell .conflict-x svg{ width:56%; height:56%; display:block; }
+@keyframes conflictPop{ from{ transform:scale(0.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
+.cell.conflict-fading .glyph,
+.cell.conflict-fading .conflict-x{
+  transition: opacity 0.4s ease;
+  opacity: 0;
+}
+
+/* ===================== conflict tooltip (briefly shown over a cell when
+   a move is rejected) ===================== */
+.tip-popup{
+  position:absolute; top:50%; left:50%; z-index:6;
+  transform:translate(-50%,-50%) scale(0.9);
+  background:var(--surface-2); border:1px solid var(--miss); color:var(--ink);
+  padding:10px 18px; border-radius:12px;
+  font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:0.85rem;
+  text-align:center; max-width:82%;
+  pointer-events:none;
+  opacity:0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow:0 12px 30px -10px rgba(0,0,0,0.65);
+}
+.tip-popup.show{ opacity:1; transform:translate(-50%,-50%) scale(1); }

@@ -1,0 +1,74 @@
+/* ===================== music panel ===================== */
+.music-card{ max-width:320px; text-align:left; max-height:90vh; overflow-y:auto; }
+.music-card h2{
+  text-align:center; font-family:'Fraunces', serif; font-style:italic;
+  font-size:1.3rem; margin:0 0 12px;
+}
+.music-now{ text-align:center; margin-bottom:14px; }
+.music-now-label{
+  font-size:0.6rem; color:var(--ink-dim); letter-spacing:0.08em;
+  text-transform:uppercase; margin-bottom:2px;
+}
+.music-now-name{ font-weight:600; font-size:0.98rem; color:var(--accent); }
+.music-transport{ display:flex; justify-content:center; gap:10px; margin-bottom:16px; }
+.music-ctrl-btn{
+  width:42px; height:42px; border-radius:50%; flex:0 0 auto;
+  background:var(--surface-2); border:1px solid var(--line); color:var(--ink);
+  font-size:1.05rem; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.music-ctrl-btn:hover{ border-color:var(--line-strong); }
+.music-ctrl-btn.active{ border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.music-ctrl-btn.muted{ color:var(--miss); border-color:var(--miss); background:rgba(224,104,90,0.14); }
+.music-volume-row{ display:flex; align-items:center; gap:8px; margin-bottom:18px; }
+.music-volume-row .music-vol-ic{ font-size:0.85rem; color:var(--ink-dim); flex:0 0 auto; }
+.music-volume-row input[type="range"]{
+  flex:1; accent-color:var(--accent); height:4px; cursor:pointer;
+}
+.music-song-label{
+  font-size:0.6rem; color:var(--ink-dim); letter-spacing:0.08em;
+  text-transform:uppercase; margin-bottom:6px;
+}
+.music-song-list-wrap{
+  position:relative;
+  margin-bottom:14px;
+}
+.music-song-list{
+  display:flex; flex-direction:column; gap:5px;
+  overflow-y:auto;
+  touch-action:pan-y; /* app-wide touch-action:none (see global resets) would
+                          otherwise block the scroll gesture here */
+}
+/* Subtle hint that more songs sit below the visible rows, right where the
+   list meets the Done button. Fades in/out (rather than always showing)
+   so it only appears when there's actually something left to scroll to. */
+.music-song-fade{
+  /* Bleeds out to the music card's own edges (negative margin equal to
+     the card's horizontal padding) rather than stopping at the song
+     list's box, so it reads as a fade on the panel itself instead of a
+     rounded strip clipped inside it. */
+  position:absolute; left:-26px; right:-26px; bottom:0; height:24px;
+  pointer-events:none;
+  background:linear-gradient(to bottom, rgba(44,36,64,0), var(--surface) 80%);
+  opacity:0;
+  transition:opacity 0.2s ease;
+}
+.music-song-fade.show{ opacity:1; }
+.music-song-btn{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  width:100%; text-align:left; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-dim);
+  font-family:'Space Grotesk', sans-serif; font-size:0.78rem; font-weight:500;
+  padding:7px 12px; border-radius:10px; cursor:pointer;
+  transition:border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  touch-action:pan-y; /* the buttons are the actual touch target inside the list */
+}
+.music-song-btn:hover{ border-color:var(--line-strong); }
+.music-song-btn.playing{ border-color:var(--accent); color:var(--ink); background:var(--accent-dim); }
+.music-song-num{
+  font-family:'JetBrains Mono', monospace; font-size:0.66rem; opacity:0.6; margin-right:6px;
+}
+.music-song-note{ color:var(--accent); }
+.music-unavailable{
+  font-size:0.78rem; color:var(--ink-dim); text-align:center;
+  padding:14px 10px; line-height:1.4;
+}

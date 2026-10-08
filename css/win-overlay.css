@@ -1,0 +1,51 @@
+/* ===================== win overlay: card pop-in + confetti burst ===================== */
+#winOverlay.show .card{ animation: winPop 0.55s cubic-bezier(0.22,1.1,0.32,1.2); }
+@keyframes winPop{
+  0%{ transform:scale(0.7) rotate(-3deg); opacity:0; }
+  60%{ transform:scale(1.06) rotate(1.5deg); opacity:1; }
+  100%{ transform:scale(1) rotate(0deg); opacity:1; }
+}
+.new-best{
+  display:none;
+  color:var(--accent); font-weight:700; font-size:0.82rem;
+  letter-spacing:0.06em; text-transform:uppercase;
+  margin:-10px 0 16px;
+}
+.new-best.show{ display:block; animation: newBestPulse 0.9s ease-in-out 1; }
+@keyframes newBestPulse{ 0%{ transform:scale(0.85); opacity:0; } 50%{ transform:scale(1.12); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
+
+.confetti-layer{
+  position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1;
+  border-radius:18px;
+}
+.confetti-piece{
+  position:absolute; top:-12px; width:8px; height:14px; opacity:0.95;
+  border-radius:2px;
+  animation-name: confettiFall;
+  animation-timing-function: cubic-bezier(0.35,0,0.65,1);
+  animation-fill-mode: forwards;
+}
+@keyframes confettiFall{
+  0%{ transform:translateY(0) translateX(0) rotate(0deg); opacity:1; }
+  100%{ transform:translateY(105vh) translateX(var(--drift,0px)) rotate(var(--rotate,180deg)); opacity:0.1; }
+}
+
+/* Hand-toss burst used when the win-overlay owl's frame-3 pose shows its
+   wings at its sides — a small two-stage arc (up-and-out, then down)
+   rather than the straight top-of-screen rain of confettiFall, so it
+   reads as being thrown from a specific point rather than falling from
+   the sky. Lives in its own fixed, full-viewport layer created lazily by
+   spawnConfettiBurst() so it always renders above the win card
+   regardless of the card's own stacking context. */
+.hand-confetti-piece{
+  position:absolute; width:7px; height:12px; opacity:1;
+  border-radius:2px;
+  animation-name: confettiToss;
+  animation-timing-function: cubic-bezier(0.22,0.68,0.36,1);
+  animation-fill-mode: forwards;
+}
+@keyframes confettiToss{
+  0%{ transform:translate(0,0) rotate(0deg) scale(0.5); opacity:1; }
+  35%{ transform:translate(var(--tx-mid,0px), var(--ty-mid,-50px)) rotate(var(--rot-mid,180deg)) scale(1); opacity:1; }
+  100%{ transform:translate(var(--tx-end,0px), var(--ty-end,90px)) rotate(var(--rot-end,520deg)) scale(0.85); opacity:0; }
+}
