@@ -1,11 +1,11 @@
-/* Sandboxed ad banner with retry/backoff (AdBanner) */
+/* Ad banner with retry/backoff (AdBanner) */
 
 /* =========================================================
    AD BANNER
    The network's tag uses document.write, which browsers ignore in scripts
    added after page load, so it runs inside a small srcdoc iframe (where it
-   is parsed normally). That iframe is sandboxed so the ad can only run its
-   script and paint inside its own box.
+   is parsed normally). The iframe is deliberately NOT sandboxed, so the ad
+   can run normally, including click-throughs and popups.
    Nothing is requested until the title screen is dismissed, and requests
    (including retries) are held back while a dialog overlay is open, the tab
    is hidden, or the device is offline, so no impression is counted while the
@@ -18,7 +18,7 @@
 const AdBanner = (function(){
   const AD_KEY = '6c2d06e331521800da109fa255c92561';
   const AD_W = 320, AD_H = 50;
-  const AD_SRC = 'https://www.highrevenueformat.com/' + AD_KEY + '/invoke.js';
+  const AD_SRC = 'https://sneakinghalfbakedcucumber.com/' + AD_KEY + '/invoke.js';
   const AD_SETTLE_MS = 5000;            // in-frame: how long to wait for a visible creative
   const AD_LOAD_TIMEOUT_MS = 8000;      // parent backstop if the frame never reports
   const AD_RETRY_DELAYS_MS = [2000, 5000, 15000, 30000, 60000];
@@ -64,10 +64,9 @@ const AdBanner = (function(){
     }, delay);
   }
 
-  // Runs INSIDE the sandboxed ad frame (serialized into srcdoc below). It
-  // only inspects the frame's own document, so no allow-same-origin is
-  // needed; the verdict travels back via postMessage. Must not contain a
-  // closing script tag, since it is embedded in an inline <script>.
+  // Runs INSIDE the ad frame (serialized into srcdoc below). It inspects the
+  // frame's own document and sends the verdict back via postMessage. Must not
+  // contain a closing script tag, since it is embedded in an inline <script>.
   function frameProbe(tok){
     var reported = false;
     function report(status){
@@ -110,22 +109,11 @@ const AdBanner = (function(){
     f.setAttribute('scrolling', 'no');
     f.setAttribute('frameborder', '0');
     f.title = 'Advertisement';
-    // Lock the ad down to "run its script and paint pixels inside its own
-    // box" — nothing else:
-    //  - no allow-top-navigation*: the ad (or a nested creative) cannot
-    //    redirect the whole tab.
-    //  - no allow-popups: popups/popunders are blocked outright.
-    //  - no allow-modals: no fake alert/confirm dialogs.
-    //  - no allow-same-origin: the frame gets an opaque origin, so the ad
-    //    can't read/write this page's storage or DOM.
-    // Nested creative iframes can never be granted more than this.
-    // Trade-off: click-through to the advertiser stops working too, since
-    // that's also a form of popup/navigation.
-    // Load detection deliberately does NOT peek into the frame from here
-    // (that would need allow-same-origin). A probe script inside the frame
+    // No sandbox attribute: the ad may open popups/click-throughs and run
+    // normally. Note this also means the frame shares this page's origin.
+    // Load detection is still done by a probe script inside the frame, which
     // checks its own document and postMessages the verdict; the parent only
     // trusts messages from this frame's window that echo the per-attempt token.
-    f.setAttribute('sandbox', 'allow-scripts');
     f.setAttribute('referrerpolicy', 'no-referrer');
     const probeSrc = '(' + frameProbe.toString().replace('__SETTLE__', String(AD_SETTLE_MS)) +
                      ')(' + JSON.stringify(token) + ');';
